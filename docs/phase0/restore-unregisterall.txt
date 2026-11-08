@@ -1,0 +1,1 @@
+CoreCursorUnregisterAll err=0

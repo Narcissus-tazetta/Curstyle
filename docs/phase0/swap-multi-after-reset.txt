@@ -1,0 +1,57 @@
+test=c1b44ae4d50a0d2e
+before com.apple.coregraphics.Arrow	err=0	size=28x40 hot=(4.5,4) frames=1 dur=0.0000 images=[28x40,56x80,140x200,280x400] hash=01c5c4098b7bf66b
+register com.apple.coregraphics.Arrow	err=0 seed=-1431655766
+readback com.apple.coregraphics.Arrow	err=0	hash=01c5c4098b7bf66b
+before com.apple.coregraphics.ArrowS	err=0	size=28x40 hot=(4.5,4) frames=1 dur=0.0000 images=[28x40,56x80,140x200,280x400] hash=01c5c4098b7bf66b
+register com.apple.coregraphics.ArrowS	err=0 seed=-1431655766
+readback com.apple.coregraphics.ArrowS	err=0	hash=c1b44ae4d50a0d2e
+before com.apple.coregraphics.IBeam	err=0	size=22x23 hot=(11.5,11) frames=1 dur=0.0000 images=[23x22,46x44,115x110,230x220] hash=bb149b6ea77208c5
+register com.apple.coregraphics.IBeam	err=0 seed=-1431655766
+readback com.apple.coregraphics.IBeam	err=0	hash=bb149b6ea77208c5
+before com.apple.coregraphics.IBeamS	err=0	size=22x23 hot=(11.5,11) frames=1 dur=0.0000 images=[23x22,46x44,115x110,230x220] hash=bb149b6ea77208c5
+register com.apple.coregraphics.IBeamS	err=0 seed=-1431655766
+readback com.apple.coregraphics.IBeamS	err=0	hash=c1b44ae4d50a0d2e
+before com.apple.cursor.13	err=1007	-
+register com.apple.cursor.13	err=0 seed=-1431655766
+readback com.apple.cursor.13	err=0	hash=c1b44ae4d50a0d2e
+  applied com.apple.coregraphics.ConnectionCurrent	err=0 hash=c1b44ae4d50a0d2e
+  applied com.apple.coregraphics.GlobalCurrent	err=0 hash=bb149b6ea77208c5
+  applied com.apple.coregraphics.Arrow	err=0 hash=c1b44ae4d50a0d2e
+  applied com.apple.coregraphics.IBeam	err=0 hash=c1b44ae4d50a0d2e
+  applied com.apple.coregraphics.IBeamXOR	err=0 hash=5940c3389a2be5fd
+  applied com.apple.coregraphics.Alias	err=0 hash=5940c3389a2be5fd
+  applied com.apple.coregraphics.Copy	err=0 hash=5940c3389a2be5fd
+  applied com.apple.coregraphics.Move	err=0 hash=8976ae843aa69b1d
+  applied com.apple.coregraphics.ArrowCtx	err=0 hash=5940c3389a2be5fd
+  applied com.apple.coregraphics.Wait	err=0 hash=d35ba064a20acd36
+  applied com.apple.coregraphics.Empty	err=0 hash=3c2417e1e4417f29
+  applied com.apple.coregraphics.ArrowS	err=0 hash=c1b44ae4d50a0d2e
+  applied com.apple.coregraphics.IBeamS	err=0 hash=c1b44ae4d50a0d2e
+  applied core:0	err=0 hash=c1b44ae4d50a0d2e
+  applied core:1	err=0 hash=c1b44ae4d50a0d2e
+waiting 20.0s — 画面のカーソルを確認してください
+restore(re-register) com.apple.coregraphics.Arrow	err=0 seed=-1431655766
+final com.apple.coregraphics.Arrow	err=0	hash=c1b44ae4d50a0d2e matchesBefore=false
+restore(re-register) com.apple.coregraphics.ArrowS	err=0 seed=-1431655766
+final com.apple.coregraphics.ArrowS	err=0	hash=01c5c4098b7bf66b matchesBefore=true
+restore(re-register) com.apple.coregraphics.IBeam	err=0 seed=-1431655766
+final com.apple.coregraphics.IBeam	err=0	hash=c1b44ae4d50a0d2e matchesBefore=false
+restore(re-register) com.apple.coregraphics.IBeamS	err=0 seed=-1431655766
+final com.apple.coregraphics.IBeamS	err=0	hash=bb149b6ea77208c5 matchesBefore=true
+restore(remove) com.apple.cursor.13	err=0
+final com.apple.cursor.13	err=1007	hash=- matchesBefore=true
+  restored com.apple.coregraphics.ConnectionCurrent	err=0 hash=bb149b6ea77208c5
+  restored com.apple.coregraphics.GlobalCurrent	err=0 hash=c1b44ae4d50a0d2e
+  restored com.apple.coregraphics.Arrow	err=0 hash=01c5c4098b7bf66b
+  restored com.apple.coregraphics.IBeam	err=0 hash=bb149b6ea77208c5
+  restored com.apple.coregraphics.IBeamXOR	err=0 hash=5940c3389a2be5fd
+  restored com.apple.coregraphics.Alias	err=0 hash=5940c3389a2be5fd
+  restored com.apple.coregraphics.Copy	err=0 hash=5940c3389a2be5fd
+  restored com.apple.coregraphics.Move	err=0 hash=8976ae843aa69b1d
+  restored com.apple.coregraphics.ArrowCtx	err=0 hash=5940c3389a2be5fd
+  restored com.apple.coregraphics.Wait	err=0 hash=d35ba064a20acd36
+  restored com.apple.coregraphics.Empty	err=0 hash=3c2417e1e4417f29
+  restored com.apple.coregraphics.ArrowS	err=0 hash=01c5c4098b7bf66b
+  restored com.apple.coregraphics.IBeamS	err=0 hash=bb149b6ea77208c5
+  restored core:0	err=0 hash=01c5c4098b7bf66b
+  restored core:1	err=0 hash=bb149b6ea77208c5

@@ -1,0 +1,4 @@
+register-core 0 -> com.apple.coregraphics.ArrowS	err=0 readback err=0 match=true
+register-core 1 -> com.apple.coregraphics.IBeamS	err=0 readback err=0 match=true
+remove com.apple.coregraphics.Move	err=1000 readback err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+remove com.curstyle.probe.test	err=0 readback err=1007	-

@@ -1,0 +1,21 @@
+apply com.apple.cursor.13	err=0 seed=-1431655766 test=c1b44ae4d50a0d2e
+apply com.apple.cursor.2	err=0 seed=-1431655766 test=c1b44ae4d50a0d2e
+apply com.apple.coregraphics.ArrowS	err=0 seed=-1431655766 test=c1b44ae4d50a0d2e
+apply com.apple.coregraphics.IBeamS	err=0 seed=-1431655766 test=c1b44ae4d50a0d2e
+apply com.apple.coregraphics.Move	err=0 seed=-1431655766 test=c1b44ae4d50a0d2e
+apply com.curstyle.probe.test	err=0 seed=-1431655766 test=c1b44ae4d50a0d2e
+# 別プロセスから(apply 終了後)
+read com.apple.cursor.13	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.apple.cursor.2	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.apple.coregraphics.ArrowS	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.apple.coregraphics.IBeamS	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.apple.coregraphics.Move	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.curstyle.probe.test	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+CoreCursorUnregisterAll err=0
+# restore 後
+read com.apple.cursor.13	err=1007	-
+read com.apple.cursor.2	err=1007	-
+read com.apple.coregraphics.ArrowS	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.apple.coregraphics.IBeamS	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.apple.coregraphics.Move	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
+read com.curstyle.probe.test	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e

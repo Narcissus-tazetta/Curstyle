@@ -36,10 +36,13 @@ curstyle apply --test [arrow,ibeam,link]  # テスト画像を適用する(--ani
 curstyle apply <theme-dir>                # theme.json のテーマを適用する
 curstyle restore                          # 保存しておいた標準画像に戻す
 curstyle reset-system                     # 保存画像を使わずに OS の標準へ戻す(最終手段)
+curstyle report [file]                    # 不具合報告用の診断レポートを書き出す(- で標準出力)
+curstyle make-theme <dir> [--labels]      # テスト画像をテーマとして書き出す(--labels は cursor.N に番号を描く)
 ```
 
 - 初めて適用するときに、標準画像のスナップショットを `~/Library/Application Support/Curstyle/` に保存する。macOS には差し替えた矢印・Iビームの標準画像を取り出す手段がないので、`restore` はこのスナップショットを使って戻す。
-- 「システム設定 > アクセシビリティ > ディスプレイ > ポインタ」で色を変えていると、テーマは表示されない。`diagnose` がこの状態を検知して知らせる。
+- 「システム設定 > アクセシビリティ > ディスプレイ > ポインタ」で色を変えていると、テーマは表示されない。この状態では `apply` / `snapshot` / `reset-system` は実行を拒否し、`diagnose` も問題として知らせる。
+- スクリーンショット(Command+Shift+4)の十字など、アプリが独自に登録するカーソルは変えられない。
 - 何をしても戻らない場合は、ログアウトしてログインし直せば標準に戻る。
 
 ## ドキュメント
@@ -47,6 +50,7 @@ curstyle reset-system                     # 保存画像を使わずに OS の�
 - [docs/PLAN.md](docs/PLAN.md): 開発計画、安定性の定義、設計原則
 - [docs/PHASE0.md](docs/PHASE0.md): 非公開 API の実測結果(シグネチャ・識別子・表示への反映・復元)
 - [docs/PHASE1.md](docs/PHASE1.md): エンジンと CLI の仕様、実機で確かめた結果
+- [docs/PHASE2.md](docs/PHASE2.md): 実テーマ・ポインター色・cursor.N の実機確認と診断レポート
 
 ## 構成
 

@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import CursorKit
 import Foundation
 
@@ -13,6 +14,54 @@ enum TestTheme {
             cursors[key] = try rep(for: key, animated: animated)
         }
         return CursorTheme(name: animated ? "test-animated" : "test", cursors: cursors)
+    }
+
+    /// cursor.N を目視で見分けるためのテーマ。矢印と I ビームはテスト画像、cursor.N は番号を描いた四角。
+    /// 標準画像が同一の 7/8・9/10 は片方だけ定義し、CursorCatalog の別名処理で両方に当たることも確かめる。
+    static func makeLabeled() throws -> CursorTheme {
+        var cursors: [String: CursorRep] = [
+            "arrow": try rep(for: "arrow", animated: false), "ibeam": try rep(for: "ibeam", animated: false),
+        ]
+        let aliasLabels = [7: "7/8", 9: "9/10"]
+        for id in CursorCatalog.coreCursorIDs where id >= 2 && id != 6 && id != 8 && id != 10 {
+            cursors["cursor.\(id)"] = label(aliasLabels[id] ?? String(id), hue: CGFloat(id % 12) / 12)
+        }
+        return CursorTheme(name: "labels", cursors: cursors)
+    }
+
+    private static func label(_ text: String, hue: CGFloat) -> CursorRep {
+        let side = 32
+        let images = [1, 2].map { scale in
+            let px = side * scale
+            let ctx = CGContext(
+                data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: px * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            ctx.scaleBy(x: CGFloat(scale), y: CGFloat(scale))
+            ctx.addPath(
+                CGPath(
+                    roundedRect: CGRect(x: 1, y: 1, width: side - 2, height: side - 2), cornerWidth: 6,
+                    cornerHeight: 6, transform: nil))
+            fillStroke(ctx, hsb(hue))
+            let font = CTFontCreateWithName("Helvetica-Bold" as CFString, text.count > 2 ? 10 : 15, nil)
+            let attributed = NSAttributedString(
+                string: text,
+                attributes: [
+                    NSAttributedString.Key(kCTFontAttributeName as String): font,
+                    NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(
+                        srgbRed: 0, green: 0, blue: 0, alpha: 1),
+                ])
+            let line = CTLineCreateWithAttributedString(attributed)
+            let bounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+            ctx.textPosition = CGPoint(
+                x: (CGFloat(side) - bounds.width) / 2 - bounds.minX,
+                y: (CGFloat(side) - bounds.height) / 2 - bounds.minY)
+            CTLineDraw(line, ctx)
+            return ctx.makeImage()!
+        }
+        return CursorRep(
+            size: CGSize(width: side, height: side), hotspot: CGPoint(x: 16, y: 16), frameCount: 1, frameDuration: 0,
+            images: images)
     }
 
     private static func rep(for key: String, animated: Bool) throws -> CursorRep {

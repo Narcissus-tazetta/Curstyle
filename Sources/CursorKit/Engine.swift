@@ -19,7 +19,6 @@ public struct NameResult: Sendable {
 public struct ApplyReport: Sendable {
     public var themeName: String
     public var environment: CursorEnvironment
-    public var warnings: [String]
     public var results: [NameResult]
     /// 失敗したときの原因と、ロールバックの結果。
     public var failure: String?
@@ -118,7 +117,15 @@ public final class CursorEngine {
     /// 以前のスナップショットを残す。標準画像はログインや色変更で変わるので、
     /// 自分の適用内容と違う名前は「OS が登録し直した新しい標準」とみなす。
     /// 他のカーソルアプリが書き換えた状態は区別できない(既知の制約)。
+    ///
+    /// ポインター色のカスタマイズ中は拒否する。この状態ではテーマが表示されないうえ、色付きの画像を
+    /// 標準として取り込んでしまい、色をリセットするとシステムが ArrowS / IBeamS / cursor.13 を上書きする(実測)。
     public func refreshSnapshot() throws {
+        if CursorEnvironment.current().cursorIsCustomized == true {
+            throw CursorKitError.busy(
+                "ポインターの色がカスタマイズされているため実行しない(テーマは画面に表示されず、色付きの画像を標準として取り込んでしまう)。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットしてから実行すること"
+            )
+        }
         let journal = try store.loadJournal()
         let existing = try store.loadManifest()
         let env = CursorEnvironment.current()
@@ -172,13 +179,6 @@ public final class CursorEngine {
     /// 1つでも失敗したら、この適用で触った名前をスナップショットへ戻す。
     public func apply(_ theme: CursorTheme) throws -> ApplyReport {
         let env = CursorEnvironment.current()
-        var warnings: [String] = []
-        if env.cursorIsCustomized == true {
-            warnings.append(
-                "ポインターの色がカスタマイズされている(cursorIsCustomized=1)。この状態ではテーマは画面に表示されない。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットすること"
-            )
-        }
-
         let plan = try theme.resolvedPlan()
         let previous = try store.loadJournal()
         try refreshSnapshot()
@@ -206,7 +206,7 @@ public final class CursorEngine {
             }
             try store.saveJournal(journal)
             return ApplyReport(
-                themeName: theme.name, environment: env, warnings: warnings, results: results, failure: reason,
+                themeName: theme.name, environment: env, results: results, failure: reason,
                 rollback: report)
         }
 
@@ -238,6 +238,6 @@ public final class CursorEngine {
         journal.status = .applied
         try store.saveJournal(journal)
         return ApplyReport(
-            themeName: theme.name, environment: env, warnings: warnings, results: results, failure: nil, rollback: nil)
+            themeName: theme.name, environment: env, results: results, failure: nil, rollback: nil)
     }
 }

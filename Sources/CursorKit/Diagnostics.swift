@@ -101,13 +101,127 @@ public enum Diagnostics {
             let states = try engine.states()
             let counts = Dictionary(grouping: states, by: \.state).mapValues(\.count)
             report.add(.ok, "名前ごとの状態", counts.map { "\($0.key.rawValue)=\($0.value)" }.sorted().joined(separator: " "))
-            for s in states where s.state == .themed || s.state == .unknown {
-                report.add(s.state == .unknown ? .warning : .ok, s.name, "\(s.state.rawValue) hash=\(s.hash)")
+            for s in states where s.state == .themed {
+                report.add(.ok, s.name, "\(s.state.rawValue) hash=\(s.hash)")
+            }
+            // 色のカスタマイズ中・リセット直後は、システムが ArrowS / IBeamS / cursor.13 を登録し直すので「不明」になる。
+            // カスタマイズ中に restore すると色設定と食い違う画像を登録するので勧めない。
+            let unknownHint =
+                env.cursorIsCustomized == true
+                    ? "ポインター色のカスタマイズでシステムが登録した画像と見られる(想定どおり)"
+                    : "他のカーソルアプリかポインター設定の変更で書き換わった可能性がある。ポインター色を戻した直後なら `curstyle snapshot` で取り直す。それ以外は `curstyle restore` で取得時の標準へ戻せる"
+            for s in states where s.state == .unknown {
+                report.add(.warning, s.name, "\(s.state.rawValue) hash=\(s.hash)。\(unknownHint)")
             }
         } catch {
             report.add(.error, "状態の読み取り", "\(error)")
         }
         report.add(.ok, "注意", "読み戻しの一致は画面に表示された証拠ではない。表示は目視で確認すること")
         return report
+    }
+}
+
+extension Diagnostics {
+    /// 不具合報告に添付する全文。自己診断に加えて、OS が返した生の値を残す。
+    /// ホームディレクトリのパスは ~ に置き換える(ユーザー名を含めない)。
+    public static func fullReport(store: SnapshotStore) -> String {
+        var out: [String] = []
+        func section(_ title: String) { out.append("\n## \(title)") }
+
+        out.append("# curstyle 診断レポート")
+        out.append("生成: \(ISO8601DateFormatter().string(from: Date()))")
+        out.append("OS: macOS \(CursorEnvironment.current().osVersion) (\(sysctlString("kern.osversion") ?? "?"))")
+        out.append("機種: \(sysctlString("hw.model") ?? "?") / \(sysctlString("hw.machine") ?? "?")")
+
+        section("自己診断")
+        for item in run(store: store).items {
+            out.append("[\(item.level.rawValue)] \(item.title): \(item.detail)")
+        }
+
+        section("ポインター設定 (com.apple.universalaccess)")
+        let domain = "com.apple.universalaccess" as CFString
+        let keys = (CFPreferencesCopyKeyList(domain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost) as? [String]) ?? []
+        let cursorKeys = keys.filter { $0.lowercased().contains("cursor") }.sorted()
+        if cursorKeys.isEmpty { out.append("(cursor を含むキーなし)") }
+        for key in cursorKeys {
+            let value = CFPreferencesCopyAppValue(key as CFString, domain).map { "\($0)" } ?? "nil"
+            out.append("\(key) = \(value.replacingOccurrences(of: "\n", with: " "))")
+        }
+
+        section("シンボル")
+        _ = CSResolveAXFCursorUnregisterAll()
+        for symbol in requiredSymbols + optionalSymbols + [
+            "CoreCursorSet", "CoreCursorCopyImages", "AXFCursorUnregisterAll",
+        ] {
+            out.append("\(symbol): \(CSImagePathForSymbol(symbol).map { String(cString: $0) } ?? "欠落")")
+        }
+
+        let backend: CGSBackend
+        do {
+            backend = try CGSBackend()
+        } catch {
+            out.append("\nバックエンドを初期化できない: \(error)")
+            return redactHome(out.joined(separator: "\n"))
+        }
+
+        section("CGSCursorNameForSystemCursor")
+        let table = backend.systemCursorTable()
+        if table.isEmpty { out.append("(取得できない)") }
+        for (id, name) in table.sorted(by: { $0.key < $1.key }) {
+            let mark = CursorCatalog.knownSystemCursorTable[id] == name ? "" : "  ← macOS 27.2 の表と異なる"
+            out.append("\(id): \(name)\(mark)")
+        }
+
+        section("名前ごとの状態")
+        do {
+            let states = try CursorEngine(backend: backend, store: store).states()
+            for s in states {
+                let summary = try backend.read(s.name).rep?.summary ?? "未登録"
+                out.append("\(s.name)\t\(s.state.rawValue)\t\(s.hash)\t\(summary)")
+            }
+        } catch {
+            out.append("読み取れない: \(error)")
+        }
+
+        section("ジャーナル")
+        if FileManager.default.fileExists(atPath: store.journalURL.path) {
+            do {
+                out.append(try String(contentsOf: store.journalURL, encoding: .utf8))
+            } catch {
+                out.append("読めない: \(error)")
+            }
+        } else {
+            out.append("(無い = clean)")
+        }
+
+        section("スナップショット")
+        do {
+            if let manifest = try store.loadManifest() {
+                out.append("更新: \(ISO8601DateFormatter().string(from: manifest.updatedAt)) 件数: \(manifest.entries.count)")
+                let byEnv = Dictionary(grouping: manifest.entries, by: \.value.environment)
+                for (env, entries) in byEnv.sorted(by: { $0.value.count > $1.value.count }) {
+                    out.append(
+                        "取得時の環境 os=\(env.osVersion) cursorIsCustomized=\(env.cursorIsCustomized.map { "\($0)" } ?? "nil") size=\(env.cursorSize.map { "\($0)" } ?? "nil"): \(entries.count) 件"
+                    )
+                }
+            } else {
+                out.append("(無い)")
+            }
+        } catch {
+            out.append("読めない: \(error)")
+        }
+        return redactHome(out.joined(separator: "\n")) + "\n"
+    }
+
+    private static func sysctlString(_ name: String) -> String? {
+        var size = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
+        return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+
+    private static func redactHome(_ text: String) -> String {
+        text.replacingOccurrences(of: NSHomeDirectory(), with: "~")
     }
 }

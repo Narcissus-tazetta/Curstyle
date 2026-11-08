@@ -4,12 +4,14 @@ import Foundation
 let usage = """
     usage: curstyle <command>
       diagnose                     自己診断(OS・シンボル・ポインター色・スナップショット・名前ごとの状態)
+      report [file]                不具合報告用の診断レポートを書き出す(既定は ./curstyle-report-<日時>.txt、- で標準出力)
       status                       名前ごとの状態を全件表示
       snapshot                     現在の標準画像をスナップショットに取り込む(適用はしない)
       apply --test [keys] [--animated]   テスト画像を適用する。keys は arrow,ibeam,link(既定は全部)
       apply <theme-dir>            theme.json のテーマを適用する
         --fail-after N             失敗注入: N 回の登録の後、次の登録を1回だけ失敗させる(ロールバックを確かめる)
         --kill-after N             失敗注入: N 回の登録の後、プロセスを SIGKILL する(restore を確かめる)
+      make-theme <dir> [--labels]  テスト画像をテーマディレクトリとして書き出す。--labels は全 cursor.N に番号を描いたテーマ
       restore                      スナップショットから標準へ戻す(テーマのコードを通らない独立経路)
       reset-system                 スナップショットを使わずに OS の標準へ戻す(ポインター色リセット時の再登録と同じ処理)
     """
@@ -69,6 +71,25 @@ do {
         }
         exit(report.hasProblem ? 1 : 0)
 
+    case "report":
+        let text = Diagnostics.fullReport(store: store)
+        if args.first == "-" {
+            print(text, terminator: "")
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyyMMdd-HHmmss"
+            let path = args.first ?? "curstyle-report-\(formatter.string(from: Date())).txt"
+            try text.write(toFile: path, atomically: true, encoding: .utf8)
+            print("書き出した: \(path)")
+        }
+
+    case "make-theme":
+        let labels = takeFlag("--labels")
+        guard let dir = args.first else { fail("make-theme には書き出し先のディレクトリが要る\n\(usage)", code: 2) }
+        let theme = labels ? try TestTheme.makeLabeled() : try TestTheme.make(keys: TestTheme.keys, animated: false)
+        try theme.write(directory: URL(fileURLWithPath: dir, isDirectory: true))
+        print("書き出した: \(dir)(\(theme.cursors.count) 件)")
+
     case "status":
         let engine = CursorEngine(backend: try CGSBackend(), store: store)
         for s in try engine.states() {
@@ -99,7 +120,6 @@ do {
         if let n = failAfter { backend = FaultInjectingBackend(base: backend, fault: .failRegister(after: n)) }
         if let n = killAfter { backend = FaultInjectingBackend(base: backend, fault: .killProcess(after: n)) }
         let report = try CursorEngine(backend: backend, store: store).apply(theme)
-        for w in report.warnings { print("警告: \(w)") }
         print("テーマ \(report.themeName)")
         printResults(report.results)
         if let failure = report.failure {

@@ -68,3 +68,37 @@ public struct CursorTheme: Sendable {
         return CursorTheme(name: file.name, cursors: cursors)
     }
 }
+
+extension CursorTheme {
+    /// load(directory:) で読める形(theme.json と <key>@<倍率>x.png)で書き出す。既存のファイルは上書きする。
+    public func write(directory: URL) throws {
+        struct Entry: Encodable {
+            var size: [Double]
+            var hotspot: [Double]
+            var frameCount: Int
+            var frameDuration: Double
+            var images: [String]
+        }
+        struct File: Encodable {
+            var name: String
+            var cursors: [String: Entry]
+        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var entries: [String: Entry] = [:]
+        for (key, rep) in cursors {
+            var files: [String] = []
+            for image in rep.images {
+                let file = "\(key)@\(Int(Double(image.width) / rep.size.width))x.png"
+                try writePNG(image, to: directory.appendingPathComponent(file))
+                files.append(file)
+            }
+            entries[key] = Entry(
+                size: [rep.size.width, rep.size.height], hotspot: [rep.hotspot.x, rep.hotspot.y],
+                frameCount: rep.frameCount, frameDuration: rep.frameDuration, images: files)
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(File(name: name, cursors: entries)).write(
+            to: directory.appendingPathComponent("theme.json"), options: .atomic)
+    }
+}

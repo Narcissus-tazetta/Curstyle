@@ -37,7 +37,7 @@ curstyle reset-system             スナップショットを使わずに OS の
 - スナップショット・復元: `com.apple.coregraphics.{ArrowS, IBeamS, Move, Wait, IBeamXOR, Alias, Copy, ArrowCtx, Empty}` と `com.apple.cursor.0〜43` の53件。
   - `Arrow` / `IBeam` は読み戻すと `ArrowS` / `IBeamS` の内容が返り、登録しても効かないので含めない。
   - `GlobalCurrent` / `ConnectionCurrent` は「いま表示中のカーソル」を返す動的な値なので含めない。
-- テーマのキー: `arrow` → `ArrowS`、`ibeam` → `IBeamS`、`pointingHand` / `link` → `cursor.13`(この3つは目視で確認済み)。`cursor.N`、および `CursorCatalog.roleNames` の役割名(`OpenHand` / `ResizeLeftRight` など)も受け付ける。役割名は AccessibilityFoundation の `+[_AXFMouseCursorGenerator _nameForCursor:]` が返す対応表から取ったもので、目視では確かめていない。
+- テーマのキー: `arrow` → `ArrowS`、`ibeam` → `IBeamS`、`pointingHand` / `link` → `cursor.13`(この3つは目視で確認済み)。`cursor.N`、および `CursorCatalog.roleNames` の役割名(`OpenHand` / `ResizeLeftRight` など)も受け付ける。役割名は AccessibilityFoundation の `+[_AXFMouseCursorGenerator _nameForCursor:]` が返す対応表と、AppKit の各 `NSCursor` ファクトリに `-_coreCursorType` を問い合わせた結果から取った。重なる番号はすべて一致する。目視では確かめていない。
 - 標準画像がピクセル単位で同一の `cursor.7 = 8`、`cursor.9 = 10` は、片方だけ定義されても両方に当てる。
 - `CGSCursorNameForSystemCursor` の表が macOS 27.2 と変わったら、診断で警告する。表に無い名前は標準のまま残る。
 

@@ -30,16 +30,19 @@ public enum CursorCatalog {
         7: "Wait", 8: "Empty", 100: "ArrowS", 101: "IBeamS",
     ].mapValues { coreGraphicsPrefix + $0 }
 
-    /// CoreCursor ID → 役割名。AccessibilityFoundation の +[_AXFMouseCursorGenerator _nameForCursor:] が返す
-    /// com.apple.accessibility.cursor.<役割名> から取った(macOS 27.2)。目視では未確認。
+    /// CoreCursor ID → 役割名(macOS 27.2、目視では未確認)。出典は2つで、重なる番号はすべて一致した:
+    /// AccessibilityFoundation の +[_AXFMouseCursorGenerator _nameForCursor:] が返す
+    /// com.apple.accessibility.cursor.<役割名>、および AppKit の各 NSCursor ファクトリの -_coreCursorType。
+    /// 4 / 24 / 25 / 40 / 42 / 43 は AppKit 側にしか無い。
     public static let roleNames: [Int: String] = [
-        2: "MakeAlias", 3: "NotAllowed", 5: "Copy", 9: "ScreenshotWindow", 11: "ClosedHand", 12: "OpenHand",
-        17: "ResizeLeft", 18: "ResizeRight", 19: "ResizeLeftRight", 20: "Cross", 21: "ResizeUp", 22: "ResizeDown",
-        23: "ResizeUpDown", 26: "IBeamVertical", 27: "WindowResizeEast", 28: "WindowResizeEastWest",
-        29: "WindowResizeNorthEast", 30: "WindowResizeNorthEastSouthWest", 31: "WindowResizeNorth",
-        32: "WindowResizeNorthSouth", 33: "WindowResizeNorthWest", 34: "WindowResizeNorthWestSouthEast",
-        35: "WindowResizeSouthEast", 36: "WindowResizeSouth", 37: "WindowResizeSouthWest", 38: "WindowResizeWest",
-        39: "WindowMove", 41: "Cell",
+        2: "MakeAlias", 3: "NotAllowed", 4: "BusyButClickable", 5: "Copy", 9: "ScreenshotWindow", 11: "ClosedHand",
+        12: "OpenHand", 17: "ResizeLeft", 18: "ResizeRight", 19: "ResizeLeftRight", 20: "Cross", 21: "ResizeUp",
+        22: "ResizeDown", 23: "ResizeUpDown", 24: "ContextualMenu", 25: "DisappearingItem", 26: "IBeamVertical",
+        27: "WindowResizeEast", 28: "WindowResizeEastWest", 29: "WindowResizeNorthEast",
+        30: "WindowResizeNorthEastSouthWest", 31: "WindowResizeNorth", 32: "WindowResizeNorthSouth",
+        33: "WindowResizeNorthWest", 34: "WindowResizeNorthWestSouthEast", 35: "WindowResizeSouthEast",
+        36: "WindowResizeSouth", 37: "WindowResizeSouthWest", 38: "WindowResizeWest", 39: "WindowMove", 40: "Help",
+        41: "Cell", 42: "ZoomIn", 43: "ZoomOut",
     ]
 
     /// テーマのキー → 実際に登録する名前の集合。

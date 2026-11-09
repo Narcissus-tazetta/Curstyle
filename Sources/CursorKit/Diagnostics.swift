@@ -53,7 +53,7 @@ public enum Diagnostics {
         case nil: report.add(.warning, "ポインターの色", "cursorIsCustomized を読めない")
         }
         if let size = env.cursorSize, size != 1 {
-            report.add(.warning, "ポインターのサイズ", "\(size)(標準は 1)。サイズ変更時の挙動は未確認")
+            report.add(.ok, "ポインターのサイズ", "\(size)(標準は 1)。テーマ適用後に変えると OS が cursor.N のテーマを消す。変更後の `curstyle apply` は有効")
         }
 
         let backend: CGSBackend
@@ -104,12 +104,23 @@ public enum Diagnostics {
             for s in states where s.state == .themed {
                 report.add(.ok, s.name, "\(s.state.rawValue) hash=\(s.hash)")
             }
+            // 再ログイン・再起動・ポインターサイズ変更で OS がテーマの画像を消しても、ジャーナルは applied のまま残る。
+            if journal.status == .applied {
+                let themed = Set(states.filter { $0.state == .themed }.map(\.name))
+                let lost = journal.intended.keys.filter { !themed.contains($0) }
+                if !lost.isEmpty {
+                    report.add(
+                        .warning, "テーマが消えている",
+                        "ジャーナルは適用中だが、\(journal.intended.count) 件のうち \(lost.count) 件はテーマの画像が登録されていない(再ログイン・再起動・ポインターサイズ変更で OS が消す)。`curstyle apply <テーマ>` で再適用するか、`curstyle restore` で標準へ戻してジャーナルを clean にできる"
+                    )
+                }
+            }
             // 色のカスタマイズ中・リセット直後は、システムが ArrowS / IBeamS / cursor.13 を登録し直すので「不明」になる。
             // カスタマイズ中に restore すると色設定と食い違う画像を登録するので勧めない。
             let unknownHint =
                 env.cursorIsCustomized == true
-                    ? "ポインター色のカスタマイズでシステムが登録した画像と見られる(想定どおり)"
-                    : "他のカーソルアプリかポインター設定の変更で書き換わった可能性がある。ポインター色を戻した直後なら `curstyle snapshot` で取り直す。それ以外は `curstyle restore` で取得時の標準へ戻せる"
+                ? "ポインター色のカスタマイズでシステムが登録した画像と見られる(想定どおり)"
+                : "他のカーソルアプリかポインター設定の変更で書き換わった可能性がある。ポインター色を戻した直後なら `curstyle snapshot` で取り直す。それ以外は `curstyle restore` で取得時の標準へ戻せる"
             for s in states where s.state == .unknown {
                 report.add(.warning, s.name, "\(s.state.rawValue) hash=\(s.hash)。\(unknownHint)")
             }
@@ -140,7 +151,8 @@ extension Diagnostics {
 
         section("ポインター設定 (com.apple.universalaccess)")
         let domain = "com.apple.universalaccess" as CFString
-        let keys = (CFPreferencesCopyKeyList(domain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost) as? [String]) ?? []
+        let keys =
+            (CFPreferencesCopyKeyList(domain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost) as? [String]) ?? []
         let cursorKeys = keys.filter { $0.lowercased().contains("cursor") }.sorted()
         if cursorKeys.isEmpty { out.append("(cursor を含むキーなし)") }
         for key in cursorKeys {
@@ -197,7 +209,8 @@ extension Diagnostics {
         section("スナップショット")
         do {
             if let manifest = try store.loadManifest() {
-                out.append("更新: \(ISO8601DateFormatter().string(from: manifest.updatedAt)) 件数: \(manifest.entries.count)")
+                out.append(
+                    "更新: \(ISO8601DateFormatter().string(from: manifest.updatedAt)) 件数: \(manifest.entries.count)")
                 let byEnv = Dictionary(grouping: manifest.entries, by: \.value.environment)
                 for (env, entries) in byEnv.sorted(by: { $0.value.count > $1.value.count }) {
                     out.append(

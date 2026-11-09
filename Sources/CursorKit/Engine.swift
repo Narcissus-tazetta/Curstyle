@@ -35,6 +35,7 @@ public struct RestoreReport: Sendable {
 public enum NameState: String, Sendable {
     case standard = "標準(スナップショット一致)"
     case themed = "テーマ適用中"
+    case unregistered = "未登録(アプリが使うときに OS が標準を登録する)"
     case unknown = "不明(スナップショットとも適用内容とも異なる)"
     case noSnapshot = "スナップショットなし"
 }
@@ -165,6 +166,10 @@ public final class CursorEngine {
                 } else if entry.registered == nil, CursorCatalog.coreCursorID(of: name) != nil {
                     // 未登録の cursor.N は、アプリが初めて使うときに HIServices が標準画像で登録する。
                     state = .standard
+                } else if hash == "-", CursorCatalog.coreCursorID(of: name) != nil {
+                    // 再ログイン・再起動・ポインターサイズ変更で OS が cursor.N を登録解除した状態(実測)。
+                    // 標準の見た目に戻っており、同じく HIServices が使用時に登録し直す。
+                    state = .unregistered
                 } else {
                     state = .unknown
                 }

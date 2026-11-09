@@ -36,6 +36,7 @@ public enum NameState: String, Sendable {
     case standard = "標準(スナップショット一致)"
     case themed = "テーマ適用中"
     case unregistered = "未登録(アプリが使うときに OS が標準を登録する)"
+    case renewedAtLogin = "標準(ログイン時に OS が登録し直した。スナップショットはそれより前)"
     case unknown = "不明(スナップショットとも適用内容とも異なる)"
     case noSnapshot = "スナップショットなし"
 }
@@ -155,6 +156,7 @@ public final class CursorEngine {
     public func states() throws -> [(name: String, state: NameState, hash: String)] {
         let manifest = try store.loadManifest()
         let journal = try store.loadJournal()
+        let loginTime = LoginSession.consoleLoginTime()
         return try CursorCatalog.snapshotNames.map { name in
             let hash = try backend.read(name).hash
             let state: NameState
@@ -170,6 +172,10 @@ public final class CursorEngine {
                     // 再ログイン・再起動・ポインターサイズ変更で OS が cursor.N を登録解除した状態(実測)。
                     // 標準の見た目に戻っており、同じく HIServices が使用時に登録し直す。
                     state = .unregistered
+                } else if let loginTime, entry.capturedAt < loginTime {
+                    // 再ログインで ArrowS / IBeamS の標準は別物に変わる(hotspot・size が違う。実測)。
+                    // ログイン前に取ったスナップショットとの差は、他アプリの書き換えではなくこれとみなす。
+                    state = .renewedAtLogin
                 } else {
                     state = .unknown
                 }
@@ -191,6 +197,8 @@ public final class CursorEngine {
         // 前回のテーマが残っている名前のうち、今回のテーマに含まれないものは標準へ戻す。
         let planNames = Set(plan.map(\.name))
         let leftovers = previous.intended.keys.filter { !planNames.contains($0) }
+
+        try store.saveActiveTheme(theme)
 
         var journal = Journal(
             status: .applying, themeName: theme.name,

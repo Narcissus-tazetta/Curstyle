@@ -14,6 +14,11 @@ let usage = """
       make-theme <dir> [--labels]  テスト画像をテーマディレクトリとして書き出す。--labels は全 cursor.N に番号を描いたテーマ
       restore                      スナップショットから標準へ戻す(テーマのコードを通らない独立経路)
       reset-system                 スナップショットを使わずに OS の標準へ戻す(ポインター色リセット時の再登録と同じ処理)
+      helper install               ログイン時に起動する自動再適用ヘルパーを LaunchAgent として登録し、起動する
+      helper uninstall             ヘルパーを止めて登録を消す
+      helper status                ヘルパーの登録状態・停止理由・直近のログ
+      helper resume                回数上限などで止まったヘルパーを再開する
+      helper run                   ヘルパー本体(launchd から起動される)
     """
 
 func fail(_ message: String, code: Int32 = 1) -> Never {
@@ -69,6 +74,7 @@ do {
         for item in report.items {
             print("[\(item.level.rawValue)] \(item.title): \(item.detail)")
         }
+        print("[情報] ヘルパーの登録: \(Helper.launchdState())")
         exit(report.hasProblem ? 1 : 0)
 
     case "report":
@@ -148,6 +154,45 @@ do {
         let report = try Recovery(backend: try CGSBackend(), store: store).restore()
         printRestore(report)
         exit(report.succeeded ? 0 : 1)
+
+    case "helper":
+        switch args.first {
+        case "run":
+            Helper.run(store: store)
+        case "install":
+            guard store.root == SnapshotStore.defaultRoot else {
+                fail("CURSTYLE_HOME を指定したままでは install しない(ヘルパーは既定の置き場所を使う)")
+            }
+            guard let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() else {
+                fail("自分の実行ファイルのパスを取れない")
+            }
+            let installed = try Helper.install(executable: exe)
+            print("登録した: \(Helper.plistURL.path)")
+            print("実行ファイル: \(installed.path)(\(exe.path) の写し。更新したら install し直すこと)")
+            print(Helper.launchdState())
+        case "uninstall":
+            try Helper.uninstall()
+            print("ヘルパーを止めて登録を消した")
+        case "resume":
+            try AutoReapply.resume(store: store)
+            print("再開した(次のイベントか、ヘルパーの再起動で確認する)")
+        case "status":
+            print("launchd: \(Helper.launchdState())")
+            let state = try store.loadHelperState()
+            print("停止: \(state.stoppedReason.map { "\($0)(\(state.stoppedAt!))" } ?? "していない")")
+            print("直近の確認: \(state.lastCheckAt.map { "\($0)" } ?? "-") \(state.lastResult ?? "")")
+            let now = Date()
+            print(
+                "再適用: 直近1時間 \(state.reappliedAt.filter { now.timeIntervalSince($0) < 3600 }.count) 回、うち原因不明の消失で直近10分 \(state.unexplainedAt.filter { now.timeIntervalSince($0) < 600 }.count) 回"
+            )
+            let logURL = store.root.appendingPathComponent("helper.log")
+            if let text = try? String(contentsOf: logURL, encoding: .utf8) {
+                print("--- helper.log(末尾10行)")
+                for line in text.split(separator: "\n").suffix(10) { print(line) }
+            }
+        default:
+            fail("helper には run / install / uninstall / status / resume のどれかが要る\n\(usage)", code: 2)
+        }
 
     default:
         print(usage)

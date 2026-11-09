@@ -115,6 +115,13 @@ public enum Diagnostics {
                     )
                 }
             }
+            let renewed = states.filter { $0.state == .renewedAtLogin }.map(\.name)
+            if !renewed.isEmpty {
+                report.add(
+                    .ok, "ログイン時に更新された標準",
+                    "\(renewed.joined(separator: ", ")) はスナップショット取得後のログインで OS が別の標準を登録した。このまま `curstyle restore` するとログイン前の標準で上書きするので、先に `curstyle snapshot` で取り直すこと(apply と自動再適用は取り直してから適用する)"
+                )
+            }
             // 色のカスタマイズ中・リセット直後は、システムが ArrowS / IBeamS / cursor.13 を登録し直すので「不明」になる。
             // カスタマイズ中に restore すると色設定と食い違う画像を登録するので勧めない。
             let unknownHint =
@@ -126,6 +133,18 @@ public enum Diagnostics {
             }
         } catch {
             report.add(.error, "状態の読み取り", "\(error)")
+        }
+        do {
+            let helper = try store.loadHelperState()
+            if let reason = helper.stoppedReason {
+                report.add(
+                    .warning, "自動再適用ヘルパー",
+                    "停止中: \(reason)。原因を確かめてから `curstyle helper resume`(apply / restore でも再開する)")
+            } else if let last = helper.lastCheckAt {
+                report.add(.ok, "自動再適用ヘルパー", "直近の確認 \(last): \(helper.lastResult ?? "-")")
+            }
+        } catch {
+            report.add(.warning, "自動再適用ヘルパー", "helper.json を読めない: \(error)")
         }
         report.add(.ok, "注意", "読み戻しの一致は画面に表示された証拠ではない。表示は目視で確認すること")
         return report

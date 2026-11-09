@@ -92,8 +92,47 @@ public final class SnapshotStore {
         lockFD = fd
     }
 
+    /// 常駐プロセスはロックを持ち続けると CLI の操作を塞ぐので、操作のたびに取って放す。
+    public func unlock() {
+        guard lockFD >= 0 else { return }
+        close(lockFD)
+        lockFD = -1
+    }
+
+    public func withLock<T>(_ body: () throws -> T) throws -> T {
+        try lock()
+        defer { unlock() }
+        return try body()
+    }
+
     deinit {
-        if lockFD >= 0 { close(lockFD) }
+        unlock()
+    }
+
+    // MARK: active theme
+
+    /// 最後に適用したテーマの写し。自動再適用はこれを使う(元のディレクトリが動いても壊れないように)。
+    var activeThemeURL: URL { root.appendingPathComponent("active-theme", isDirectory: true) }
+
+    public func saveActiveTheme(_ theme: CursorTheme) throws {
+        let fm = FileManager.default
+        let staging = root.appendingPathComponent("active-theme.staging-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try theme.write(directory: staging)
+        } catch {
+            try? fm.removeItem(at: staging)
+            throw error
+        }
+        if fm.fileExists(atPath: activeThemeURL.path) {
+            _ = try fm.replaceItemAt(activeThemeURL, withItemAt: staging)
+        } else {
+            try fm.moveItem(at: staging, to: activeThemeURL)
+        }
+    }
+
+    public func loadActiveTheme() throws -> CursorTheme? {
+        guard FileManager.default.fileExists(atPath: activeThemeURL.path) else { return nil }
+        return try CursorTheme.load(directory: activeThemeURL)
     }
 
     // MARK: journal

@@ -25,5 +25,10 @@ let package = Package(
             name: "curstyle-probe",
             dependencies: ["CCursorBridge"]
         ),
+        // 測定用の使い捨てコードなので、厳密な並行性チェックは外す。
+        .executableTarget(
+            name: "curstyle-overlay-probe",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
     ]
 )

@@ -34,10 +34,11 @@ curstyle diagnose                         # 自己診断。問題があれば終
 curstyle status                           # 名前ごとの状態(標準 / テーマ適用中 / 不明)
 curstyle apply --test [arrow,ibeam,link]  # テスト画像を適用する(--animated でアニメ版)
 curstyle apply <theme-dir>                # theme.json のテーマを適用する
-curstyle restore                          # 保存しておいた標準画像に戻す
+curstyle apply --backend overlay <theme-dir>  # 本物を隠して自前で描く方式で適用する(CGSBackend が使えない OS 向け。ヘルパーが要る)
+curstyle restore                          # 保存しておいた標準画像に戻す(overlay 方式なら描画を止める)
 curstyle reset-system                     # 保存画像を使わずに OS の標準へ戻す(最終手段)
 curstyle report [file]                    # 不具合報告用の診断レポートを書き出す(- で標準出力)
-curstyle make-theme <dir> [--labels]      # テスト画像をテーマとして書き出す(--labels は cursor.N に番号を描く)
+curstyle make-theme <dir> [--labels]      # テスト画像をテーマとして書き出す(--labels は cursor.N に番号を描く、--overlay-check は役割ごとに単色)
 curstyle helper install                   # ログイン時に自動で再適用するヘルパーを登録する(uninstall / status / resume)
 ```
 
@@ -54,15 +55,17 @@ curstyle helper install                   # ログイン時に自動で再適用
 - [docs/PHASE1.md](docs/PHASE1.md): エンジンと CLI の仕様、実機で確かめた結果
 - [docs/PHASE2.md](docs/PHASE2.md): 実テーマ・ポインター色・cursor.N の実機確認と診断レポート
 - [docs/PHASE3.md](docs/PHASE3.md): 自動再適用ヘルパーの仕様と実機の結果
+- [docs/PHASE3_5.md](docs/PHASE3_5.md): OverlayBackend の実現性測定・仕様・実機の結果
 
 ## 構成
 
 | パス | 内容 |
 | --- | --- |
 | `Sources/CCursorBridge` | 非公開 API の C ブリッジ。シンボルは `dlsym` で解決する |
-| `Sources/CursorKit` | エンジン本体(適用・スナップショット・復元・診断) |
+| `Sources/CursorKit` | エンジン本体(適用・スナップショット・復元・診断)。`Overlay/` は OverlayBackend |
 | `Sources/curstyle` | CLI |
 | `Sources/curstyle-probe` | 非公開 API の実測用ツール |
+| `Sources/curstyle-overlay-probe` | OverlayBackend の実測・自動判定用ツール |
 
 ## ライセンス
 

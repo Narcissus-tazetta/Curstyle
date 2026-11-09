@@ -25,15 +25,58 @@ enum Helper {
             },
             log: { logger.write($0) })
         logger.write("起動 pid=\(getpid())")
-
         let ws = NSWorkspace.shared.notificationCenter
+        let overlay = OverlayController(
+            store: store,
+            log: { logger.write($0) },
+            notify: { message in
+                logger.write("通知: \(message)")
+                postNotification(message, log: logger)
+            },
+            fatal: { message in
+                logger.write(message)
+                // launchd の KeepAlive(SuccessfulExit=false)で起動し直させる。
+                exit(1)
+            })
+        // 画面ロック・スクリーンセーバーの通知名は公開 API ではないが、長く使われているもの(macOS 27.2 で受信を確認する)。
+        let dnc = DistributedNotificationCenter.default()
+        for (begin, end, reason) in [
+            ("com.apple.screenIsLocked", "com.apple.screenIsUnlocked", "screen-lock"),
+            ("com.apple.screensaver.didstart", "com.apple.screensaver.didstop", "screensaver"),
+        ] {
+            dnc.addObserver(forName: Notification.Name(begin), object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { overlay.suspend(reason) }
+            }
+            dnc.addObserver(forName: Notification.Name(end), object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { overlay.resume(reason) }
+            }
+        }
+        ws.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { overlay.suspend("session-inactive") }
+        }
+        ws.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { overlay.resume("session-inactive") }
+        }
+        // apply / restore からの合図。ジャーナルを読み直して overlay を始める・止める。
+        DistributedNotificationCenter.default().addObserver(
+            forName: OverlayActivation.changedNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { overlay.sync(reason: "changed") }
+        }
+
         for name in [NSWorkspace.didWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
             let reason = name.rawValue
             ws.addObserver(forName: name, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { reapply.trigger(reason) }
+                MainActor.assumeIsolated {
+                    reapply.trigger(reason)
+                    overlay.sync(reason: reason)
+                }
             }
         }
-        let displayErr = DisplayWatcher.start { reapply.trigger("display") }
+        let displayErr = DisplayWatcher.start {
+            reapply.trigger("display")
+            overlay.displaysChanged()
+        }
         if displayErr != .success { logger.write("ディスプレイ変更の監視を登録できない: CGError=\(displayErr.rawValue)") }
         // ポインターのサイズ・色の変更は distributed notification で取れない(Phase 3 で実測)。
         // cfprefsd が書き出す plist の変更で拾う。書き出しは設定変更から最大8秒ほど遅れる。
@@ -42,11 +85,13 @@ enum Helper {
                 "universalaccess の設定ファイルが書き換わった\(changed ? "(ポインター設定が変化)" : "") size=\(env.cursorSize.map { "\($0)" } ?? "nil") customized=\(env.cursorIsCustomized.map { "\($0)" } ?? "nil")"
             )
             reapply.trigger("pointer-prefs", knownCause: true)
+            overlay.pointerPrefsChanged()
         }
         prefsWatcher.start()
 
         // ログイン直後は OS がカーソルを登録し直している最中の可能性があるので、少し後にも確かめる。
         reapply.trigger("launch")
+        overlay.sync(reason: "launch", launch: true)
         for delay: TimeInterval in [10, 40] { reapply.trigger("launch+\(Int(delay))s", after: delay) }
 
         signal(SIGTERM, SIG_IGN)
@@ -60,7 +105,7 @@ enum Helper {
         // NSApplication を Dock に出さない設定で回す。
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
-        withExtendedLifetime((prefsWatcher, term)) { app.run() }
+        withExtendedLifetime((prefsWatcher, term, overlay)) { app.run() }
         exit(0)
     }
 

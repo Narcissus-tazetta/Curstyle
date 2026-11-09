@@ -35,7 +35,7 @@ public enum Diagnostics {
         report.add(.ok, "OS", "macOS \(env.osVersion)")
 
         for s in requiredSymbols where CSImagePathForSymbol(s) == nil {
-            report.add(.error, "シンボル欠落", "\(s) が無い。この OS ではカーソルを変更できない")
+            report.add(.error, "シンボル欠落", "\(s) が無い。この OS では CGSBackend でカーソルを変更できない")
         }
         for s in optionalSymbols where CSImagePathForSymbol(s) == nil {
             report.add(.warning, "シンボル欠落", "\(s) が無い(診断の一部が使えない)")
@@ -56,11 +56,22 @@ public enum Diagnostics {
             report.add(.ok, "ポインターのサイズ", "\(size)(標準は 1)。テーマ適用後に変えると OS が cursor.N のテーマを消す。変更後の `curstyle apply` は有効")
         }
 
+        let overlayMissing = OverlaySymbols.missing()
+        if overlayMissing.isEmpty {
+            report.add(.ok, "overlay 方式", "使える(`curstyle apply --backend overlay <テーマ>`)")
+        } else {
+            report.add(.warning, "overlay 方式", "シンボル \(overlayMissing.joined(separator: ", ")) が無いため使えない")
+        }
+        addOverlayStatus(&report, store: store)
+
         let backend: CGSBackend
         do {
             backend = try CGSBackend()
         } catch {
-            report.add(.error, "バックエンド", "\(error)")
+            report.add(
+                .error, "バックエンド",
+                "\(error)\(overlayMissing.isEmpty ? "。CGSBackend が使えないので、overlay 方式(`curstyle apply --backend overlay <テーマ>`)を使える" : "")"
+            )
             return report
         }
         if let scale = backend.cursorScale() {
@@ -81,7 +92,8 @@ public enum Diagnostics {
             let journal = try store.loadJournal()
             report.add(
                 .ok, "ジャーナル",
-                "\(journal.status.rawValue) theme=\(journal.themeName ?? "-") 対象=\(journal.intended.count)")
+                "\(journal.status.rawValue) backend=\(journal.backend.rawValue) theme=\(journal.themeName ?? "-") 対象=\(journal.intended.count)"
+            )
             if journal.status == .applying {
                 report.add(.error, "適用が途中で止まっている", "前回の適用が完了していない。`curstyle restore` で標準へ戻せる")
             }
@@ -152,6 +164,36 @@ public enum Diagnostics {
 }
 
 extension Diagnostics {
+    static func addOverlayStatus(_ report: inout DiagnosticReport, store: SnapshotStore) {
+        guard let journal = try? store.loadJournal(), journal.backend == .overlay, journal.status == .applied else {
+            return
+        }
+        let status = (try? store.loadHelperState())?.overlay
+        guard let status, status.running else {
+            report.add(
+                .error, "overlay",
+                "overlay 方式で適用中だが、ヘルパーが描画していない\(status?.stoppedReason.map { "(\($0))" } ?? "")。`curstyle helper status` を確認し、未インストールなら `curstyle helper install`。`curstyle restore` で解除できる"
+            )
+            return
+        }
+        report.add(
+            .ok, "overlay",
+            "描画中 theme=\(status.themeName ?? "-") 開始 \(status.startedAt.map { "\($0)" } ?? "-") 照合表 \(status.matcherEntries) 件"
+        )
+        if status.yieldCount > 0 {
+            let scenes = status.yieldScenes.sorted { $0.value > $1.value }.map { "\($0.key)=\($0.value)" }
+                .joined(separator: " ")
+            report.add(
+                .ok, "overlay: 本物を隠せなかった場面",
+                "\(status.yieldCount) 回(その間は標準カーソルを表示。最前面アプリ別: \(scenes))。Mission Control・Command+Shift+4・Dock の上では想定どおり"
+            )
+        }
+        if status.unknownShapes > 0 {
+            report.add(
+                .ok, "overlay: 照合できなかった形", "\(status.unknownShapes) 種類(標準の見た目のまま描いた。アプリ独自のカーソルやスクリーンショットの十字など)")
+        }
+    }
+
     /// 不具合報告に添付する全文。自己診断に加えて、OS が返した生の値を残す。
     /// ホームディレクトリのパスは ~ に置き換える(ユーザー名を含めない)。
     public static func fullReport(store: SnapshotStore) -> String {

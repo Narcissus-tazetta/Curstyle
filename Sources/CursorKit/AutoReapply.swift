@@ -10,6 +10,7 @@ public struct HelperState: Codable, Sendable {
     public var stoppedReason: String?
     public var lastCheckAt: Date?
     public var lastResult: String?
+    public var overlay: OverlayStatus?
 
     public init() {}
 
@@ -21,7 +22,26 @@ public struct HelperState: Codable, Sendable {
         stoppedReason = try c.decodeIfPresent(String.self, forKey: .stoppedReason)
         lastCheckAt = try c.decodeIfPresent(Date.self, forKey: .lastCheckAt)
         lastResult = try c.decodeIfPresent(String.self, forKey: .lastResult)
+        overlay = try c.decodeIfPresent(OverlayStatus.self, forKey: .overlay)
     }
+}
+
+/// ヘルパー内の overlay 描画の状態。diagnose と apply / restore の確認に使う。
+public struct OverlayStatus: Codable, Sendable {
+    public var running = false
+    public var themeName: String?
+    public var startedAt: Date?
+    public var stoppedAt: Date?
+    /// ヘルパーの起動で overlay を始めた時刻(クラッシュの繰り返しの検知用)
+    public var launchStarts: [Date] = []
+    public var stoppedReason: String?
+    public var yieldCount = 0
+    public var yieldScenes: [String: Int] = [:]
+    public var lastYieldAt: Date?
+    public var unknownShapes = 0
+    public var matcherEntries = 0
+
+    public init() {}
 }
 
 extension SnapshotStore {
@@ -163,6 +183,10 @@ public final class AutoReapply {
             return "ジャーナルが applying のまま(何もしない)"
         case .applied:
             break
+        }
+        if journal.backend == .overlay {
+            lastNotified = nil
+            return "overlay 方式で適用中(入れ直しは不要。描画の状態は diagnose の overlay を参照)"
         }
 
         let backend: CursorBackend

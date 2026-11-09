@@ -9,10 +9,12 @@ let usage = """
       snapshot                     現在の標準画像をスナップショットに取り込む(適用はしない)
       apply --test [keys] [--animated]   テスト画像を適用する。keys は arrow,ibeam,link(既定は全部)
       apply <theme-dir>            theme.json のテーマを適用する
+        --backend overlay          本物を隠して自前で描く方式で適用する(CGSBackend が使えない OS 向け。ヘルパーが描く)
         --fail-after N             失敗注入: N 回の登録の後、次の登録を1回だけ失敗させる(ロールバックを確かめる)
         --kill-after N             失敗注入: N 回の登録の後、プロセスを SIGKILL する(restore を確かめる)
-      make-theme <dir> [--labels]  テスト画像をテーマディレクトリとして書き出す。--labels は全 cursor.N に番号を描いたテーマ
-      restore                      スナップショットから標準へ戻す(テーマのコードを通らない独立経路)
+      make-theme <dir> [--labels | --overlay-check]  テスト画像をテーマディレクトリとして書き出す。
+                                   --labels は全 cursor.N に番号を描いたテーマ、--overlay-check は役割ごとに単色の検証用テーマ
+      restore                      スナップショットから標準へ戻す(テーマのコードを通らない独立経路)。overlay なら描画を止める
       reset-system                 スナップショットを使わずに OS の標準へ戻す(ポインター色リセット時の再登録と同じ処理)
       helper install               ログイン時に起動する自動再適用ヘルパーを LaunchAgent として登録し、起動する
       helper uninstall             ヘルパーを止めて登録を消す
@@ -56,6 +58,43 @@ args.removeFirst()
     return n
 }
 
+@MainActor func takeValue(_ name: String) -> String? {
+    guard let i = args.firstIndex(of: name) else { return nil }
+    guard i + 1 < args.count else { fail("\(name) には値が要る") }
+    let value = args[i + 1]
+    args.removeSubrange(i...(i + 1))
+    return value
+}
+
+/// ヘルパーが合図を受けて overlay を始めた(止めた)ことを helper.json で確かめる。最大5秒待つ。
+func waitForOverlay(store: SnapshotStore, running: Bool, since: Date) -> Bool {
+    // helper.json の時刻は秒単位で保存される。
+    let since = Date(timeIntervalSince1970: since.timeIntervalSince1970.rounded(.down))
+    let deadline = Date().addingTimeInterval(5)
+    while Date() < deadline {
+        if let status = try? store.loadHelperState().overlay {
+            if running, status.running, let s = status.startedAt, s >= since {
+                print("ヘルパーが描画を始めた(照合表 \(status.matcherEntries) 件)。見た目は目視で確認すること")
+                return true
+            }
+            if running, let r = status.stoppedReason, let s = status.stoppedAt, s >= since {
+                print("ヘルパーが描画を始められなかった: \(r)")
+                return false
+            }
+            if !running, !status.running {
+                print("ヘルパーが描画を止めた(本物のカーソルに戻った)")
+                return true
+            }
+        }
+        Thread.sleep(forTimeInterval: 0.2)
+    }
+    print(
+        running
+            ? "5 秒待ってもヘルパーが描画を始めない。`curstyle helper status` を確認すること(未インストールなら `curstyle helper install`)"
+            : "5 秒待ってもヘルパーが描画を止めない。`curstyle helper status` を確認すること")
+    return false
+}
+
 @MainActor func takeFlag(_ name: String) -> Bool {
     guard let i = args.firstIndex(of: name) else { return false }
     args.remove(at: i)
@@ -91,8 +130,12 @@ do {
 
     case "make-theme":
         let labels = takeFlag("--labels")
+        let overlayCheck = takeFlag("--overlay-check")
         guard let dir = args.first else { fail("make-theme には書き出し先のディレクトリが要る\n\(usage)", code: 2) }
-        let theme = labels ? try TestTheme.makeLabeled() : try TestTheme.make(keys: TestTheme.keys, animated: false)
+        let theme =
+            overlayCheck
+            ? TestTheme.makeOverlayCheck()
+            : labels ? try TestTheme.makeLabeled() : try TestTheme.make(keys: TestTheme.keys, animated: false)
         try theme.write(directory: URL(fileURLWithPath: dir, isDirectory: true))
         print("書き出した: \(dir)(\(theme.cursors.count) 件)")
 
@@ -109,6 +152,8 @@ do {
         print("スナップショットを更新した: \(store.root.path)/snapshot")
 
     case "apply":
+        let backendName = takeValue("--backend") ?? "cgs"
+        guard backendName == "cgs" || backendName == "overlay" else { fail("--backend は cgs か overlay", code: 2) }
         let failAfter = takeOption("--fail-after")
         let killAfter = takeOption("--kill-after")
         let animated = takeFlag("--animated")
@@ -122,16 +167,28 @@ do {
             fail("apply には --test かテーマディレクトリが要る\n\(usage)", code: 2)
         }
         try store.lock()
+        if backendName == "overlay" {
+            let started = Date()
+            for note in try OverlayActivation.apply(theme, store: store) { print("  \(note)") }
+            store.unlock()
+            print("テーマ \(theme.name) を overlay 方式で適用した。描画はヘルパーが行う")
+            exit(waitForOverlay(store: store, running: true, since: started) ? 0 : 1)
+        }
         var backend: CursorBackend = try CGSBackend()
         if let n = failAfter { backend = FaultInjectingBackend(base: backend, fault: .failRegister(after: n)) }
         if let n = killAfter { backend = FaultInjectingBackend(base: backend, fault: .killProcess(after: n)) }
         let report = try CursorEngine(backend: backend, store: store).apply(theme)
+        // overlay から切り替えた場合に、ヘルパーの描画を止めさせる。
+        OverlayActivation.postChanged()
         print("テーマ \(report.themeName)")
         printResults(report.results)
         if let failure = report.failure {
             print("適用失敗: \(failure)")
             print("ロールバック:")
             if let rb = report.rollback { printRestore(rb) }
+            if OverlaySymbols.missing().isEmpty {
+                print("CGSBackend で適用できない OS なら `curstyle apply --backend overlay <テーマ>` を使える(本物を隠して自前で描く方式)")
+            }
             exit(1)
         }
         print("適用完了(読み戻しは一致。画面への反映は目視で確認すること)")
@@ -139,6 +196,7 @@ do {
     case "reset-system":
         try store.lock()
         let report = try SystemReset.run(store: store)
+        OverlayActivation.postChanged()
         for name in report.before.keys.sorted() where report.before[name] != report.after[name] {
             print("  \(name)\t\(report.before[name]!) → \(report.after[name]!)")
         }
@@ -151,6 +209,14 @@ do {
 
     case "restore":
         try store.lock()
+        if try store.loadJournal().backend == .overlay {
+            let started = Date()
+            try store.saveJournal(.clean)
+            OverlayActivation.postChanged()
+            store.unlock()
+            print("overlay 方式の適用を解除した")
+            exit(waitForOverlay(store: store, running: false, since: started) ? 0 : 1)
+        }
         let report = try Recovery(backend: try CGSBackend(), store: store).restore()
         printRestore(report)
         exit(report.succeeded ? 0 : 1)
@@ -166,6 +232,10 @@ do {
             guard let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() else {
                 fail("自分の実行ファイルのパスを取れない")
             }
+            // 入れ直しはヘルパーの起動に数えない(overlay のクラッシュの繰り返しの検知と区別する)。
+            var helperState = try store.loadHelperState()
+            helperState.overlay?.launchStarts = []
+            try store.saveHelperState(helperState)
             let installed = try Helper.install(executable: exe)
             print("登録した: \(Helper.plistURL.path)")
             print("実行ファイル: \(installed.path)(\(exe.path) の写し。更新したら install し直すこと)")

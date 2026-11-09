@@ -29,6 +29,34 @@ enum TestTheme {
         return CursorTheme(name: "labels", cursors: cursors)
     }
 
+    /// overlay の自動判定用。役割ごとに単色の四角(矢印=マゼンタ、I ビーム=シアン、指差し=黄、その他の cursor.N=緑)。
+    /// 撮影した画素の色で、どの役割の画像が描かれているかを判定できる。
+    static func makeOverlayCheck() -> CursorTheme {
+        func square(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> CursorRep {
+            let side = 24
+            let images = [1, 2].map { scale in
+                let px = side * scale
+                let ctx = CGContext(
+                    data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: px * 4,
+                    space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                ctx.setFillColor(CGColor(srgbRed: r, green: g, blue: b, alpha: 1))
+                ctx.fill(CGRect(x: 0, y: 0, width: px, height: px))
+                return ctx.makeImage()!
+            }
+            return CursorRep(
+                size: CGSize(width: side, height: side), hotspot: CGPoint(x: 2, y: 2), frameCount: 1,
+                frameDuration: 0, images: images)
+        }
+        var cursors: [String: CursorRep] = [
+            "arrow": square(1, 0, 1), "ibeam": square(0, 1, 1), "link": square(1, 1, 0),
+        ]
+        for id in CursorCatalog.coreCursorIDs where id >= 2 && id != 13 && id != 6 && id != 8 && id != 10 {
+            cursors["cursor.\(id)"] = square(0, 1, 0)
+        }
+        return CursorTheme(name: "overlay-check", cursors: cursors)
+    }
+
     private static func label(_ text: String, hue: CGFloat) -> CursorRep {
         let side = 32
         let images = [1, 2].map { scale in

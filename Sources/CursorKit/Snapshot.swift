@@ -52,11 +52,37 @@ public struct Journal: Codable, Sendable {
         case applied
     }
 
+    /// cgs: 登録名にテーマを登録する。overlay: ヘルパーが本物を隠して自前で描く(登録はしない)。
+    public enum Backend: String, Codable, Sendable {
+        case cgs
+        case overlay
+    }
+
     public var status: Status
     public var themeName: String?
-    /// 名前 → 登録した(しようとした)内容のハッシュ。
+    /// 名前 → 登録した(しようとした)内容のハッシュ。overlay では空。
     public var intended: [String: String]
     public var updatedAt: Date
+    public var backend: Backend = .cgs
+
+    public init(
+        status: Status, themeName: String?, intended: [String: String], updatedAt: Date, backend: Backend = .cgs
+    ) {
+        self.status = status
+        self.themeName = themeName
+        self.intended = intended
+        self.updatedAt = updatedAt
+        self.backend = backend
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        status = try c.decode(Status.self, forKey: .status)
+        themeName = try c.decodeIfPresent(String.self, forKey: .themeName)
+        intended = try c.decode([String: String].self, forKey: .intended)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        backend = try c.decodeIfPresent(Backend.self, forKey: .backend) ?? .cgs
+    }
 
     public static let clean = Journal(status: .clean, themeName: nil, intended: [:], updatedAt: Date())
 }

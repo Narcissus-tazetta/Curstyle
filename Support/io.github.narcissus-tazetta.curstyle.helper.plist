@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>io.github.narcissus-tazetta.curstyle.helper</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/curstyle</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>curstyle</string>
+		<string>helper</string>
+		<string>run</string>
+	</array>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>io.github.narcissus-tazetta.curstyle</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

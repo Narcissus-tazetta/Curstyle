@@ -134,7 +134,7 @@ curstyle CLI : 適用・復元・診断・受け入れテスト
 - 安定性測定(テーマ切替の繰り返し・再ログイン・再起動・スリープ・ポインターサイズ・外部ディスプレイ)は完了。結果は `docs/PHASE2.md`。
 
 ### Phase 3: 自動復旧ヘルパー
-結果は `docs/PHASE3.md`。LaunchAgent(`curstyle helper install`)として常駐し、再ログイン・再起動・ポインター設定の変更でテーマが消えたら入れ直す。UI を作る Phase 5 で SMAppService に置き換える。
+結果は `docs/PHASE3.md`。LaunchAgent(`curstyle helper install`)として常駐し、再ログイン・再起動・ポインター設定の変更でテーマが消えたら入れ直す。Phase 5 でアプリ同梱の SMAppService に置き換えた(ラベルは同じ。アプリでオンにすると旧方式を外す)。
 - イベント駆動の再適用(debounce・回数上限・失敗通知つき)。
 - 再適用は「スナップショット取り直し → 適用」の順にする(再ログイン直後は標準の ArrowS / IBeamS が変わるため)。
 
@@ -145,7 +145,9 @@ curstyle CLI : 適用・復元・診断・受け入れテスト
 - 主要アプリ(Safari / Chrome / Terminal / Excel / VS Code / Finder)での表示確認、複数ディスプレイ・Retina・拡大率、アニメ(静止中・スクリーンショット時)、72時間常駐、スリープ復帰30回、テーマ切替100回。
 
 ### Phase 5: 製品化
-- インポータ、テーマ一覧とプレビュー、フレーム速度・hotspot 編集、メニューバー、ログイン時起動、診断レポート書き出し。
+仕様と結果は `docs/PHASE5.md`。
+- 5a: アプリ本体(`Curstyle.app`)、テーマ一覧とプレビュー、適用・復元、メニューバー、Windows(.ani / .cur)の取り込み、診断レポート書き出し、ヘルパーの SMAppService 化。
+- 5b: フレーム速度・hotspot の編集、.cape / GIF の取り込み。
 - 公開を決めたら DMG・公証・自動更新を足す。
 
 ## 検証方法

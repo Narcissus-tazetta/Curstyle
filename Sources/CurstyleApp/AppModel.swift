@@ -1,0 +1,267 @@
+import AppKit
+import CursorKit
+import Observation
+import SwiftUI
+
+enum SidebarItem: Hashable {
+    case theme(String)
+    case diagnostics
+    case settings
+}
+
+/// 操作の結果を画面上部のバナーで伝える。
+struct Banner: Identifiable, Equatable {
+    enum Kind { case success, failure, info }
+    let id = UUID()
+    var kind: Kind
+    var title: String
+    var detail: String?
+}
+
+@MainActor
+@Observable
+final class AppModel {
+    let store: SnapshotStore
+    let library: ThemeLibrary
+
+    var entries: [ThemeLibrary.Entry] = []
+    var brokenThemes: [(directory: URL, message: String)] = []
+    var selection: SidebarItem?
+    var journal: Journal = .clean
+    var activeTheme: CursorTheme?
+    var helperState = HelperState()
+    var helperService: HelperService.State = .unavailable
+    var hasLegacyHelper = false
+    var diagnostics: DiagnosticReport?
+    var isDiagnosing = false
+    /// 適用・復元の最中。二重に押されないよう、その間はボタンを止める。
+    var busyMessage: String?
+    var banner: Banner?
+    var importSource: URL?
+    var backdrop: PreviewBackdrop = .checker
+    var showsHotspot = false
+
+    init() throws {
+        store = try SnapshotStore()
+        library = try ThemeLibrary()
+        reload()
+        // CLI・ヘルパー・他のウィンドウからの適用と復元の合図。
+        DistributedNotificationCenter.default().addObserver(
+            forName: OverlayActivation.changedNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshStatus() }
+        }
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshStatus() }
+        }
+        if selection == nil {
+            selection = entries.first.map { .theme($0.id) } ?? .settings
+        }
+    }
+
+    // MARK: 状態
+
+    func reload() {
+        let loaded = library.load()
+        entries = loaded.entries
+        brokenThemes = loaded.errors
+        if case .theme(let id)? = selection, !entries.contains(where: { $0.id == id }) {
+            selection = entries.first.map { .theme($0.id) }
+        }
+        refreshStatus()
+    }
+
+    func refreshStatus() {
+        do {
+            journal = try store.loadJournal()
+            activeTheme = journal.status == .applied ? try store.loadActiveTheme() : nil
+        } catch {
+            journal = .clean
+            activeTheme = nil
+            show(.failure, "適用状態を読めません", "\(error)")
+        }
+        helperState = (try? store.loadHelperState()) ?? HelperState()
+        helperService = HelperService.state
+        hasLegacyHelper = HelperService.hasLegacyInstall
+    }
+
+    var activeFingerprint: String? { activeTheme?.fingerprint }
+
+    func isActive(_ entry: ThemeLibrary.Entry) -> Bool {
+        entry.fingerprint == activeFingerprint
+    }
+
+    /// ライブラリに無いテーマ(CLI で適用したものなど)が適用されているとき、その名前。
+    var activeOutsideLibrary: String? {
+        guard let active = activeTheme, !entries.contains(where: { $0.fingerprint == active.fingerprint }) else {
+            return nil
+        }
+        return active.name
+    }
+
+    var statusSummary: String {
+        guard journal.status == .applied, let name = journal.themeName else {
+            return journal.status == .applying ? "適用が途中で止まっています" : "標準のカーソル"
+        }
+        return journal.backend == .overlay ? "\(name)(overlay 方式)" : name
+    }
+
+    var warningCount: Int {
+        diagnostics?.items.filter { $0.level != .ok }.count ?? 0
+    }
+
+    func entry(id: String) -> ThemeLibrary.Entry? {
+        entries.first { $0.id == id }
+    }
+
+    func show(_ kind: Banner.Kind, _ title: String, _ detail: String? = nil) {
+        banner = Banner(kind: kind, title: title, detail: detail)
+    }
+
+    // MARK: 適用・復元
+
+    func apply(_ entry: ThemeLibrary.Entry) async {
+        guard busyMessage == nil else { return }
+        busyMessage = "\(entry.theme.name) を適用しています…"
+        defer { busyMessage = nil }
+        // 「適用しています」を先に描かせる。登録そのものはメインスレッドで行う(CLI と同じ呼び方にそろえる)。
+        await Task.yield()
+        do {
+            let report = try store.withLock {
+                try CursorEngine(backend: try CGSBackend(), store: store).apply(entry.theme)
+            }
+            OverlayActivation.postChanged()
+            if let failure = report.failure {
+                let rolledBack = report.rollback?.succeeded == true
+                show(
+                    .failure, "適用できませんでした",
+                    "\(failure)。\(rolledBack ? "前の状態へ戻しました。" : "前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。")")
+            } else {
+                let count = report.results.filter { $0.outcome == .applied }.count
+                show(.success, "\(entry.theme.name) を適用しました", "\(count) 件の登録を読み戻して一致を確かめました。")
+            }
+        } catch {
+            show(.failure, "適用できませんでした", "\(error)")
+        }
+        refreshStatus()
+    }
+
+    func restore() async {
+        guard busyMessage == nil else { return }
+        busyMessage = "標準のカーソルに戻しています…"
+        defer { busyMessage = nil }
+        await Task.yield()
+        do {
+            if journal.backend == .overlay {
+                try store.withLock { try store.saveJournal(.clean) }
+                OverlayActivation.postChanged()
+                show(.success, "標準のカーソルに戻しました", "overlay 方式の描画を止めるよう、ヘルパーに伝えました。")
+            } else {
+                let report = try store.withLock {
+                    try Recovery(backend: try CGSBackend(), store: store).restore()
+                }
+                OverlayActivation.postChanged()
+                if report.succeeded {
+                    show(.success, "標準のカーソルに戻しました", "すべての名前がスナップショットと一致しました。")
+                } else {
+                    let failed = report.results.filter { $0.outcome == .failed || !$0.readbackMatches }.map(\.name)
+                    show(.failure, "一部を戻せませんでした", failed.joined(separator: ", "))
+                }
+            }
+        } catch {
+            show(.failure, "標準に戻せませんでした", "\(error)")
+        }
+        refreshStatus()
+    }
+
+    // MARK: ライブラリ
+
+    func add(_ theme: CursorTheme) {
+        do {
+            let entry = try library.add(theme)
+            reload()
+            selection = .theme(entry.id)
+            show(.success, "\(theme.name) を追加しました")
+        } catch {
+            show(.failure, "追加できませんでした", "\(error)")
+        }
+    }
+
+    func rename(_ entry: ThemeLibrary.Entry, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != entry.theme.name else { return }
+        do {
+            _ = try library.rename(entry, to: trimmed)
+            reload()
+        } catch {
+            show(.failure, "名前を変えられませんでした", "\(error)")
+        }
+    }
+
+    func remove(_ entry: ThemeLibrary.Entry) {
+        do {
+            try library.remove(entry)
+            reload()
+            show(.info, "\(entry.theme.name) をゴミ箱に入れました", isActive(entry) ? "適用中のカーソルはそのまま残ります。" : nil)
+        } catch {
+            show(.failure, "削除できませんでした", "\(error)")
+        }
+    }
+
+    func reveal(_ url: URL) {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    // MARK: 診断
+
+    func runDiagnostics() async {
+        guard !isDiagnosing else { return }
+        isDiagnosing = true
+        defer { isDiagnosing = false }
+        await Task.yield()
+        diagnostics = Diagnostics.run(store: store)
+        refreshStatus()
+    }
+
+    func exportReport() {
+        let panel = NSSavePanel()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        panel.nameFieldStringValue = "curstyle-report-\(formatter.string(from: Date())).txt"
+        panel.allowedContentTypes = [.plainText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try Diagnostics.fullReport(store: store).write(to: url, atomically: true, encoding: .utf8)
+            show(.success, "診断レポートを書き出しました", url.lastPathComponent)
+        } catch {
+            show(.failure, "書き出せませんでした", "\(error)")
+        }
+    }
+
+    // MARK: ヘルパー
+
+    func setHelperEnabled(_ enabled: Bool) {
+        do {
+            if enabled {
+                try HelperService.enable()
+            } else {
+                try HelperService.disable()
+            }
+        } catch {
+            show(.failure, enabled ? "ヘルパーを登録できませんでした" : "ヘルパーを止められませんでした", "\(error)")
+        }
+        refreshStatus()
+    }
+
+    func resumeHelper() {
+        do {
+            try AutoReapply.resume(store: store)
+            show(.success, "自動再適用を再開しました", "次のイベントか、ヘルパーの再起動で確かめます。")
+        } catch {
+            show(.failure, "再開できませんでした", "\(error)")
+        }
+        refreshStatus()
+    }
+}

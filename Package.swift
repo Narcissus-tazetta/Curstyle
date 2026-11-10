@@ -21,6 +21,13 @@ let package = Package(
             name: "curstyle",
             dependencies: ["CursorKit"]
         ),
+        // .app の本体。make-app.sh が curstyle(ヘルパーを兼ねる)と一緒にバンドルへ詰める。
+        // 名前を Curstyle にしないのは、大文字小文字を区別しないファイルシステムで curstyle と衝突するため。
+        .executableTarget(
+            name: "CurstyleApp",
+            dependencies: ["CursorKit"],
+            linkerSettings: [.linkedFramework("ServiceManagement")]
+        ),
         .executableTarget(
             name: "curstyle-probe",
             dependencies: ["CCursorBridge"]

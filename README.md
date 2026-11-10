@@ -1,6 +1,6 @@
 # Curstyle
 
-macOS のシステムカーソル(矢印・Iビーム・指差しなど)を、テーマ単位で差し替える軽量アプリ。現在はエンジン(`CursorKit`)と CLI(`curstyle`)だけを提供しており、GUI はまだない。
+macOS のシステムカーソル(矢印・Iビーム・指差しなど)を、テーマ単位で差し替える軽量アプリ。エンジン(`CursorKit`)、CLI(`curstyle`)、アプリ(`Curstyle.app`)からなる。
 
 > [!WARNING]
 > macOS の非公開 API(SkyLight / HIServices / AccessibilityFoundation)を使っている。OS の更新で動かなくなる可能性がある。動作を確認しているのは macOS 27.2 / Apple Silicon だけ。
@@ -22,10 +22,18 @@ macOS のシステムカーソル(矢印・Iビーム・指差しなど)を、�
 ## ビルド
 
 ```bash
-swift build -c release
+./make-app.sh
 ```
 
-実行ファイルは `.build/release/curstyle` にできる。
+`~/Applications/Curstyle.app` ができる。CLI だけなら `swift build -c release` で `.build/release/curstyle` にできる(アプリの中の `Contents/MacOS/curstyle` も同じもの)。
+
+## アプリ
+
+- サイドバーにテーマの一覧、右にテーマごとのプレビュー(アニメも再生)。ツールバーで背景とホットスポットの表示を切り替えられる。
+- 取り込み: Windows のカーソルテーマ(.ani / .cur)か theme.json のフォルダを、「＋」(⌘O)・ウィンドウへのドロップ・Dock アイコンへのドロップで渡す。取り込む前にプレビューと大きさを確かめられる。
+- 適用・標準に戻すは、テーマの画面・サイドバー下端・メニューバーから。
+- 設定の「テーマが消えたら自動で入れ直す」で常駐ヘルパーを登録する(`curstyle helper install` で入れたものは置き換える)。
+- 診断画面から不具合報告用のレポートを書き出せる。
 
 ## 使い方
 
@@ -38,6 +46,7 @@ curstyle apply --backend overlay <theme-dir>  # 本物を隠して自前で描�
 curstyle restore                          # 保存しておいた標準画像に戻す(overlay 方式なら描画を止める)
 curstyle reset-system                     # 保存画像を使わずに OS の標準へ戻す(最終手段)
 curstyle report [file]                    # 不具合報告用の診断レポートを書き出す(- で標準出力)
+curstyle import <windows-dir> <theme-dir> [--scale N]  # Windows のカーソルフォルダをテーマに変換する(既定 1 px = 1 pt)
 curstyle make-theme <dir> [--labels]      # テスト画像をテーマとして書き出す(--labels は cursor.N に番号を描く、--overlay-check は役割ごとに単色)
 curstyle helper install                   # ログイン時に自動で再適用するヘルパーを登録する(uninstall / status / resume)
 ```
@@ -56,6 +65,7 @@ curstyle helper install                   # ログイン時に自動で再適用
 - [docs/PHASE2.md](docs/PHASE2.md): 実テーマ・ポインター色・cursor.N の実機確認と診断レポート
 - [docs/PHASE3.md](docs/PHASE3.md): 自動再適用ヘルパーの仕様と実機の結果
 - [docs/PHASE3_5.md](docs/PHASE3_5.md): OverlayBackend の実現性測定・仕様・実機の結果
+- [docs/PHASE5.md](docs/PHASE5.md): アプリの仕様と実機の結果
 
 ## 構成
 
@@ -63,7 +73,8 @@ curstyle helper install                   # ログイン時に自動で再適用
 | --- | --- |
 | `Sources/CCursorBridge` | 非公開 API の C ブリッジ。シンボルは `dlsym` で解決する |
 | `Sources/CursorKit` | エンジン本体(適用・スナップショット・復元・診断)。`Overlay/` は OverlayBackend |
-| `Sources/curstyle` | CLI |
+| `Sources/curstyle` | CLI(常駐ヘルパーも兼ねる) |
+| `Sources/CurstyleApp` | アプリ(SwiftUI)。`make-app.sh` で `Support/` の plist と一緒にバンドルにする |
 | `Sources/curstyle-probe` | 非公開 API の実測用ツール |
 | `Sources/curstyle-overlay-probe` | OverlayBackend の実測・自動判定用ツール |
 

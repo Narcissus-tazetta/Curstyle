@@ -56,8 +56,6 @@ struct RootView: View {
             } else {
                 EmptyLibraryView(model: model)
             }
-        case .diagnostics?:
-            DiagnosticsView(model: model)
         case .settings?:
             SettingsPane(model: model)
         case nil:

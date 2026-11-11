@@ -5,11 +5,11 @@ struct SidebarView: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        List(selection: $model.selection) {
+        List(selection: themeSelection) {
             Section("テーマ") {
                 ForEach(model.entries) { entry in
                     ThemeRow(entry: entry, isActive: model.isActive(entry))
-                        .tag(SidebarItem.theme(entry.id))
+                        .tag(entry.id)
                         .contextMenu { ThemeActionsMenu(model: model, entry: entry) }
                 }
                 if model.entries.isEmpty {
@@ -18,12 +18,6 @@ struct SidebarView: View {
                         .foregroundStyle(.secondary)
                         .selectionDisabled()
                 }
-            }
-            Section("ツール") {
-                ToolRow(title: "診断", systemImage: "stethoscope", tint: .teal, warningCount: model.warningCount)
-                    .tag(SidebarItem.diagnostics)
-                ToolRow(title: "設定", systemImage: "gearshape.fill", tint: .gray)
-                    .tag(SidebarItem.settings)
             }
         }
         .listStyle(.sidebar)
@@ -41,30 +35,17 @@ struct SidebarView: View {
             }
         }
     }
-}
 
-private struct ToolRow: View {
-    let title: String
-    let systemImage: String
-    let tint: Color
-    var warningCount = 0
-
-    var body: some View {
-        HStack(spacing: 10) {
-            IconTile(systemImage: systemImage, tint: tint, size: 30)
-            Text(title)
-            Spacer(minLength: 4)
-            if warningCount > 0 {
-                Text("\(warningCount)")
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
-                    .background(Color.orange, in: Capsule())
-                    .accessibilityLabel("警告 \(warningCount) 件")
+    private var themeSelection: Binding<String?> {
+        Binding(
+            get: {
+                if case .theme(let id) = model.selection { return id }
+                return nil
+            },
+            set: { id in
+                if let id { model.selection = .theme(id) }
             }
-        }
-        .padding(.vertical, 2)
+        )
     }
 }
 
@@ -108,12 +89,49 @@ private struct ThemeRow: View {
     }
 }
 
-/// サイドバーの下端に、いまの状態(適用中のテーマ・ヘルパー)を常に出しておく。
+/// サイドバーの下端に、設定と現在の状態(適用中のテーマ・ヘルパー)を常に出しておく。
 private struct StatusFooter: View {
     @Bindable var model: AppModel
+    @State private var isHoveringSettings = false
+
+    private var isSettingsSelected: Bool { model.selection == .settings }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            Button {
+                model.selection = .settings
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(isSettingsSelected ? .primary : .secondary)
+                        .frame(width: 18)
+                    Text("設定")
+                        .font(.body)
+                    Spacer(minLength: 4)
+                    if model.warningCount > 0 {
+                        Text("\(model.warningCount)")
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Color.orange, in: Capsule())
+                            .accessibilityLabel("警告 \(model.warningCount) 件")
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.primary.opacity(isSettingsSelected ? 0.11 : isHoveringSettings ? 0.05 : 0))
+                )
+            }
+            .buttonStyle(.plain)
+            .onHover { isHoveringSettings = $0 }
+            .padding(.horizontal, 10)
+            .padding(.top, 4)
+
             Divider()
             HStack(spacing: 8) {
                 Circle()

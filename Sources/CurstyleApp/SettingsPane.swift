@@ -5,6 +5,8 @@ import SwiftUI
 struct SettingsPane: View {
     @Bindable var model: AppModel
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var showsDiagnostics = false
+    @State private var showsPerName = false
 
     var body: some View {
         Form {
@@ -110,6 +112,67 @@ struct SettingsPane: View {
             } header: {
                 Text("復元")
             }
+
+            Section("診断") {
+                let count = model.warningCount
+                LabeledContent {
+                    HStack(spacing: 8) {
+                        if model.isDiagnosing {
+                            ProgressView().controlSize(.small)
+                        }
+                        Button("もう一度診断") {
+                            Task { await model.runDiagnostics() }
+                        }
+                        .disabled(model.isDiagnosing)
+                        Button("レポートを書き出す") {
+                            model.exportReport()
+                        }
+                    }
+                } label: {
+                    settingLabel(
+                        model.diagnostics == nil ? "診断しています…" : count == 0 ? "問題は見つかりませんでした" : "\(count) 件の確認が必要です",
+                        systemImage: count == 0 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill",
+                        tint: count == 0 ? .green : .orange,
+                        detail: "読み戻しが一致しても、画面に表示された証拠にはなりません。見た目は実際にカーソルを動かして確かめてください。")
+                }
+                if let report = model.diagnostics {
+                    let problems = report.items.filter { $0.level != .ok }
+                    // 名前ごとの状態(com.apple.*)は数が多いので別枠で折りたたむ。
+                    let fine = report.items.filter { $0.level == .ok && !$0.title.hasPrefix("com.apple.") }
+                    let perName = report.items.filter { $0.level == .ok && $0.title.hasPrefix("com.apple.") }
+                    ForEach(Array(problems.enumerated()), id: \.offset) { _, item in
+                        DiagnosticRow(item: item)
+                    }
+                    if !fine.isEmpty {
+                        DisclosureGroup(isExpanded: $showsDiagnostics) {
+                            ForEach(Array(fine.enumerated()), id: \.offset) { _, item in
+                                DiagnosticRow(item: item)
+                            }
+                        } label: {
+                            Text("診断の内訳(\(fine.count) 件)")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(Motion.quick) { showsDiagnostics.toggle() }
+                                }
+                        }
+                    }
+                    if !perName.isEmpty {
+                        DisclosureGroup(isExpanded: $showsPerName) {
+                            ForEach(Array(perName.enumerated()), id: \.offset) { _, item in
+                                DiagnosticRow(item: item)
+                            }
+                        } label: {
+                            Text("カーソル名ごとの状態(\(perName.count) 件)")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(Motion.quick) { showsPerName.toggle() }
+                                }
+                        }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("設定")
@@ -146,5 +209,44 @@ struct SettingsPane: View {
             action()
         }
         .transition(Motion.reveal)
+    }
+}
+
+private struct DiagnosticRow: View {
+    let item: DiagnosticReport.Item
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+                .frame(width: 16)
+                .accessibilityLabel(item.level.rawValue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title).font(.callout.weight(.medium))
+                Text(item.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var icon: String {
+        switch item.level {
+        case .ok: "checkmark.circle.fill"
+        case .warning: "exclamationmark.triangle.fill"
+        case .error: "xmark.octagon.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch item.level {
+        case .ok: .green
+        case .warning: .yellow
+        case .error: .red
+        }
     }
 }

@@ -5,7 +5,6 @@ import SwiftUI
 
 enum SidebarItem: Hashable {
     case theme(String)
-    case diagnostics
     case settings
 }
 

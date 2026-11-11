@@ -446,6 +446,38 @@ final class WindowsCursorImporterTests: XCTestCase {
         XCTAssertFalse(result.skippedFiles.contains("readme.txt"))
     }
 
+    func testAnimatedImportReducesFramesAndPreservesExplicitRates() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try! FileManager.default.removeItem(at: directory) }
+        func integer(_ value: UInt32) -> Data {
+            withUnsafeBytes(of: value.littleEndian) { Data($0) }
+        }
+        func chunk(_ name: String, _ contents: Data) -> Data {
+            Data(name.utf8) + integer(UInt32(contents.count)) + contents
+                + (contents.count % 2 == 1 ? Data([0]) : Data())
+        }
+        let header: [UInt32] = [36, 54, 54, 0, 0, 0, 0, 1, 1]
+        let icons = (0..<54).reduce(Data("fram".utf8)) { data, _ in
+            data + chunk("icon", makeMockCUR(width: 16, height: 16))
+        }
+        let acon =
+            Data("ACON".utf8)
+            + chunk("anih", header.reduce(Data()) { $0 + integer($1) })
+            + chunk("rate", (0..<54).reduce(Data()) { data, _ in data + integer(2) })
+            + chunk("LIST", icons)
+        try (Data("RIFF".utf8) + integer(UInt32(acon.count)) + acon)
+            .write(to: directory.appendingPathComponent("Work.ani"))
+        let imported = try CursorTheme.importSource(directory, name: nil, pixelsPerPoint: 1)
+        XCTAssertEqual(imported.adjustments.count, 1)
+        XCTAssertTrue(imported.skipped.isEmpty)
+        let rep = imported.theme.cursors["BusyButClickable"]!
+        XCTAssertEqual(rep.frameCount, 24)
+        XCTAssertEqual(rep.frameDuration * 24, 1.8, accuracy: 0.000001)
+        XCTAssertEqual(rep.images[0].height, 16 * 24)
+        _ = try imported.theme.resolvedPlan()
+    }
+
     // MARK: - Helpers
 
     private func makeMockCUR(width: Int, height: Int) -> Data {

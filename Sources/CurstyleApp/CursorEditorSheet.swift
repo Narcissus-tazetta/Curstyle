@@ -15,6 +15,7 @@ struct CursorEditorSheet: View {
     @State private var imageSource: URL?
     @State private var pointSize: Double
     @State private var imageError: String?
+    @State private var imageAdjustment: String?
 
     /// 同じ画像を共有しているキー(Windows の Horizontal は6つのサイズ変更に当たる、など)。
     private let siblings: [String]
@@ -79,7 +80,7 @@ struct CursorEditorSheet: View {
                                     value: Binding(
                                         get: { rep.frameDuration },
                                         set: { rep = rep.withFrameDuration(($0 * 100).rounded() / 100) }),
-                                    in: 0.01...2, step: 0.01
+                                    in: 0.01...Double(Float.greatestFiniteMagnitude), step: 0.01
                                 )
                                 .labelsHidden()
                             }
@@ -121,6 +122,12 @@ struct CursorEditorSheet: View {
                         )
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
+                        if let imageAdjustment {
+                            Label(imageAdjustment, systemImage: "info.circle")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         if let imageError {
                             Label(imageError, systemImage: "exclamationmark.triangle")
                                 .font(.caption)
@@ -242,14 +249,17 @@ struct CursorEditorSheet: View {
     private func loadImage() {
         guard let imageSource, (8...128).contains(pointSize) else { return }
         do {
-            var made = try CursorRep.fromImageFile(imageSource, pointSize: pointSize)
+            let imported = try CursorRep.fromImageFile(imageSource, pointSize: pointSize)
+            var made = imported.rep
             let ratio = max(made.size.width, made.size.height) / max(rep.size.width, rep.size.height)
             made.hotspot = CGPoint(
                 x: min((rep.hotspot.x * ratio * 2).rounded() / 2, made.size.width),
                 y: min((rep.hotspot.y * ratio * 2).rounded() / 2, made.size.height))
             rep = made
+            imageAdjustment = imported.adjustment
             imageError = nil
         } catch {
+            imageAdjustment = nil
             imageError = "\(error)"
         }
     }

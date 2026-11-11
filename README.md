@@ -1,83 +1,168 @@
 # Curstyle
 
-macOS のシステムカーソル(矢印・Iビーム・指差しなど)を、テーマ単位で差し替える軽量アプリ。エンジン(`CursorKit`)、CLI(`curstyle`)、アプリ(`Curstyle.app`)からなる。
+**macOS のカーソルを、お気に入りのテーマに。**
+
+矢印、テキスト選択、リンク、ウィンドウのサイズ変更など、システムカーソルをまとめて差し替えるアプリです。Windows のカーソルテーマや Mousecape の `.cape` を取り込み、アニメーションのプレビューから編集・適用まで行えます。
 
 > [!WARNING]
-> macOS の非公開 API(SkyLight / HIServices / AccessibilityFoundation)を使っている。OS の更新で動かなくなる可能性がある。動作を確認しているのは macOS 27.2 / Apple Silicon だけ。
+> 開発中のアプリです。macOS の非公開 API（SkyLight / HIServices / AccessibilityFoundation）を利用しているため、OS の更新で動作しなくなる可能性があります。動作確認済みの環境は **macOS 27.2 / Apple Silicon** です。
 
-## 方針
+## できること
 
-非公開 API を使う以上、「OS が更新されても必ず動く」とは約束できない。代わりに次の4点を守る。
+- **テーマを取り込む** — Windows の `.cur` / `.ani`、Mousecape の `.cape`、Curstyle の `theme.json` 形式に対応。
+- **適用前に確かめる** — カーソルの役割ごとにアニメーションを再生。背景とホットスポット（クリック位置）も確認できます。
+- **使いやすく調整する** — ホットスポット、大きさ、アニメの速さを編集。カーソルごとに GIF / PNG の画像へ差し替えられます。
+- **すぐに切り替える** — アプリとメニューバーからテーマの適用・標準への復元ができます。
+- **消えたテーマを入れ直す** — 常駐ヘルパーが、再ログインや再起動、ポインター設定の変更によるテーマの消失を検知して再適用します。
+- **状態を調べる** — 設定画面から診断し、不具合報告用のレポートを書き出せます。
 
-1. **壊さない**: どんな失敗の後でも、標準のカーソルへ戻せる。
-2. **壊れたら気づく**: 適用後に読み戻して検証し、問題を診断で伝える。
-3. **壊れ方が小さい**: 知らない識別子があっても全体は止めず、その識別子だけ標準のまま残す。
-4. **直せる**: 診断レポートで OS ごとの違いを素早く見つけられるようにする。
+## ビルドして起動する
 
-## 必要なもの
-
-- macOS 27.2 以降(Apple Silicon で確認済み)
-- Swift 6 ツールチェーン(Xcode)
-
-## ビルド
+必要なものは、Swift 6 ツールチェーンを含む Xcode です。ビルド設定上の最低 OS は macOS 14 ですが、それ以降のすべての OS での動作を保証するものではありません。Intel Mac での動作は未確認です。
 
 ```bash
+git clone https://github.com/Narcissus-tazetta/Curstyle.git
+cd Curstyle
 ./make-app.sh
+open "$HOME/Applications/Curstyle.app"
 ```
 
-`~/Applications/Curstyle.app` ができる。CLI だけなら `swift build -c release` で `.build/release/curstyle` にできる(アプリの中の `Contents/MacOS/curstyle` も同じもの)。
+`make-app.sh` は release ビルドしたアプリと CLI をまとめ、ad-hoc 署名を付けて `~/Applications/Curstyle.app` に配置します。同じ場所にある既存の Curstyle.app は置き換えます。
 
-## アプリ
+## はじめて使う
 
-- サイドバーにテーマの一覧、右にテーマごとのプレビュー(アニメも再生)。ツールバーで背景とホットスポットの表示を切り替えられる。
-- 取り込み: Windows のカーソルテーマ(.ani / .cur)のフォルダ・.cape ファイル・theme.json のフォルダを、「＋」(⌘O)・ウィンドウへのドロップ・Dock アイコンへのドロップで渡す。取り込む前にプレビューと大きさを確かめられる。
-- 編集: カーソルのタイルを押すと、ホットスポット・1コマの秒数を変えたり、画像を GIF / PNG に差し替えたりできる。テーマ全体のアニメの速さは「…」メニューから一括で変える。適用中のテーマを編集してもカーソルは書き換えず、「変更を適用」で反映する。
-- 適用・標準に戻すは、テーマの画面・サイドバー下端・メニューバーから。
-- 設定の「テーマが消えたら自動で入れ直す」で常駐ヘルパーを登録する(`curstyle helper install` で入れたものは置き換える)。同じ画面の「診断」から不具合報告用のレポートも書き出せる。
+1. カーソルテーマを用意し、必要ならアーカイブを展開します。
+2. テーマのフォルダまたは `.cape` ファイルをウィンドウにドラッグします。「＋」（⌘O）や Dock アイコンへのドロップからも取り込めます。
+3. プレビューで役割と大きさ、取り込まれないファイルを確認し、「ライブラリに追加」を押します。
+4. テーマを選び、「このテーマを適用」を押します。
 
-## 使い方
+元に戻すときは、テーマ画面・サイドバー下端・メニューバーの「標準に戻す」を使います。
+
+### 対応する形式
+
+| 入力 | 渡すもの | 補足 |
+| --- | --- | --- |
+| Windows カーソル | `.cur` / `.ani` を含むフォルダ | INF の役割情報やファイル名から対応先を判定。同じ役割ではアニメ版を優先します |
+| Mousecape | `.cape` ファイル | カーソル画像・アニメーション・ホットスポットを取り込みます |
+| Curstyle | `theme.json` と画像を含むフォルダ | Curstyle のテーマをそのまま取り込めます |
+| GIF / PNG | カーソルの編集画面で選択 | 個別のカーソル画像の差し替えに使います |
+
+Windows テーマの大きさは、既定で **1 px = 1 pt** です。32 px の画像は 32 pt になります。小さく使いたい場合は、取り込み画面で「小さめ（2 px = 1 pt）」を選べます。macOS 側に対応先がない役割や、判定できないファイルは取り込まれません。
+
+24コマを超えるアニメーションは、取り込み時に自動で24コマへ間引きます。1周の再生時間を保ちますが、動きの滑らかさは低下します。変換内容は取り込み画面・CLIに表示されます。GIF画像の差し替えも同じ扱いです。
+
+### カーソルを編集する
+
+テーマ画面のカーソルをクリックすると編集画面が開きます。ホットスポットはプレビュー上でクリック・ドラッグするか、数値で指定できます。アニメの速さはカーソルごとに変更でき、テーマの「…」メニューから全体の速さも一括で変えられます。
+
+適用中のテーマを編集した場合、保存だけでは画面上のカーソルは変わりません。「変更を適用」で反映します。
+
+### ログイン後も使う
+
+設定の「テーマが消えたら自動で入れ直す」をオンにすると、常駐ヘルパーを登録します。macOS から承認を求められたら、システム設定の「ログイン項目」で Curstyle のバックグラウンド実行を許可してください。
+
+「ログイン時にメニューバーに表示」は別の設定です。テーマの自動再適用だけなら、こちらをオンにする必要はありません。
+
+## 制約と困ったとき
+
+### 適用してもカーソルが変わらない
+
+「システム設定 → アクセシビリティ → ディスプレイ → ポインタ」で、ポインターの色を標準に戻してください。色をカスタマイズしている間はテーマを適用できず、診断でもその状態を知らせます。
+
+また、スクリーンショット（⌘⇧4）の十字など、アプリが独自に登録するカーソルは差し替えられません。
+
+### 再ログインや設定変更でテーマが消える
+
+macOS がカーソルをリセットするためです。自動で戻したい場合は、常駐ヘルパーを有効にしてください。
+
+再適用してもすぐに消える状態が繰り返されると、ヘルパーは自動再適用を停止して通知します。設定画面で停止理由を確認し、「再開」できます。
+
+### 標準のカーソルに戻したい
+
+アプリの「標準に戻す」を使います。アプリが開けない場合は、ターミナルからも復元できます。
 
 ```bash
-curstyle diagnose                         # 自己診断。問題があれば終了コード 1
-curstyle status                           # 名前ごとの状態(標準 / テーマ適用中 / 不明)
-curstyle apply --test [arrow,ibeam,link]  # テスト画像を適用する(--animated でアニメ版)
-curstyle apply <theme-dir>                # theme.json のテーマを適用する
-curstyle apply --backend overlay <theme-dir>  # 本物を隠して自前で描く方式で適用する(CGSBackend が使えない OS 向け。ヘルパーが要る)
-curstyle restore                          # 保存しておいた標準画像に戻す(overlay 方式なら描画を止める)
-curstyle reset-system                     # 保存画像を使わずに OS の標準へ戻す(最終手段)
-curstyle report [file]                    # 不具合報告用の診断レポートを書き出す(- で標準出力)
-curstyle import <source> <theme-dir> [--scale N]  # .cape か Windows のカーソルフォルダをテーマに変換する(Windows は既定 1 px = 1 pt)
-curstyle make-theme <dir> [--labels]      # テスト画像をテーマとして書き出す(--labels は cursor.N に番号を描く、--overlay-check は役割ごとに単色)
-curstyle helper install                   # ログイン時に自動で再適用するヘルパーを登録する(uninstall / status / resume)
+"$HOME/Applications/Curstyle.app/Contents/MacOS/curstyle" restore
 ```
 
-- 初めて適用するときに、標準画像のスナップショットを `~/Library/Application Support/Curstyle/` に保存する。macOS には差し替えた矢印・Iビームの標準画像を取り出す手段がないので、`restore` はこのスナップショットを使って戻す。
-- 「システム設定 > アクセシビリティ > ディスプレイ > ポインタ」で色を変えていると、テーマは表示されない。この状態では `apply` / `snapshot` / `reset-system` は実行を拒否し、`diagnose` も問題として知らせる。
-- スクリーンショット(Command+Shift+4)の十字など、アプリが独自に登録するカーソルは変えられない。
-- 再ログイン・再起動・ポインターのサイズや色の変更で、OS はテーマを消す。`helper install` しておくと、常駐ヘルパーが消えたことを検知して入れ直す。入れ直してもすぐ消える状態が続いたら止まって通知するので、`curstyle helper status` で理由を確かめる。
-- 何をしても戻らない場合は、ログアウトしてログインし直せば標準に戻る。
+それでも戻らない場合は、保存画像を使わずに OS の標準へ戻すコマンドがあります。ポインターの色は標準にしてから実行してください。
 
-## ドキュメント
+```bash
+"$HOME/Applications/Curstyle.app/Contents/MacOS/curstyle" reset-system
+```
 
-- [docs/PLAN.md](docs/PLAN.md): 開発計画、安定性の定義、設計原則
-- [docs/PHASE0.md](docs/PHASE0.md): 非公開 API の実測結果(シグネチャ・識別子・表示への反映・復元)
-- [docs/PHASE1.md](docs/PHASE1.md): エンジンと CLI の仕様、実機で確かめた結果
-- [docs/PHASE2.md](docs/PHASE2.md): 実テーマ・ポインター色・cursor.N の実機確認と診断レポート
-- [docs/PHASE3.md](docs/PHASE3.md): 自動再適用ヘルパーの仕様と実機の結果
-- [docs/PHASE3_5.md](docs/PHASE3_5.md): OverlayBackend の実現性測定・仕様・実機の結果
-- [docs/PHASE5.md](docs/PHASE5.md): アプリの仕様と実機の結果
+ログアウトしてログインし直すことでも標準に戻ります。常駐ヘルパーが有効な場合はテーマを再適用するため、先に自動再適用をオフにしてください。
 
-## 構成
+### 診断や保存データを確認したい
+
+設定の「診断」から状態を確認し、「レポートを書き出す」で診断レポートを保存できます。
+
+データの保存先は `~/Library/Application Support/Curstyle/` です。`themes/` に取り込んだテーマを保存し、標準カーソルのスナップショットや適用記録、ヘルパーのログもこの保存先で管理します。標準に戻す際に使うため、テーマ適用中にスナップショットを削除しないでください。
+
+## CLI
+
+アプリには同じエンジンを使う CLI を同梱しています。以下は、リポジトリで CLI だけをビルドして使う例です。
+
+```bash
+swift build -c release --product curstyle
+
+.build/release/curstyle diagnose
+.build/release/curstyle import /path/to/windows-theme /path/to/converted-theme
+.build/release/curstyle apply /path/to/converted-theme
+.build/release/curstyle restore
+```
+
+アプリ同梱版を使う場合は、`.build/release/curstyle` を `"$HOME/Applications/Curstyle.app/Contents/MacOS/curstyle"` に置き換えてください。CLI は自動では `PATH` に追加されません。
+
+| コマンド | 用途 |
+| --- | --- |
+| `diagnose` | 自己診断。問題があれば終了コード 1 |
+| `status` | カーソル名ごとの適用状態を表示 |
+| `import <source> <theme-dir> [--scale N] [--name NAME]` | Windows のカーソルフォルダ・`.cape` を Curstyle 形式に変換 |
+| `apply <theme-dir>` | `theme.json` のテーマを適用 |
+| `restore` | 保存した標準画像に戻す |
+| `reset-system` | 保存画像を使わず、OS の標準に戻す |
+| `report [file]` | 診断レポートを保存。`-` で標準出力 |
+| `helper install / uninstall / status / resume` | CLI から常駐ヘルパーを管理 |
+| `make-theme <dir> [--labels \| --overlay-check]` | 動作確認用のテーマを書き出す |
+
+アプリの設定からヘルパーを有効にすると、`helper install` で登録したヘルパーはアプリ同梱版に置き換わります。
+
+<details>
+<summary>代替の描画方式（OverlayBackend）</summary>
+
+通常はシステムカーソルの画像を直接差し替える CGSBackend を使います。CGSBackend が使えない OS 向けに、本物のカーソルを隠して自前で描画する OverlayBackend も用意しています。切り替えは手動で、描画には常駐ヘルパーが必要です。
+
+```bash
+.build/release/curstyle helper install
+.build/release/curstyle apply --backend overlay /path/to/theme
+.build/release/curstyle restore
+```
+
+OverlayBackend でも、ポインターの色をカスタマイズしている間は適用できません。
+
+</details>
+
+## 開発
+
+Swift Package Manager で構成しています。
 
 | パス | 内容 |
 | --- | --- |
-| `Sources/CCursorBridge` | 非公開 API の C ブリッジ。シンボルは `dlsym` で解決する |
-| `Sources/CursorKit` | エンジン本体(適用・スナップショット・復元・診断)。`Overlay/` は OverlayBackend |
-| `Sources/curstyle` | CLI(常駐ヘルパーも兼ねる) |
-| `Sources/CurstyleApp` | アプリ(SwiftUI)。`make-app.sh` で `Support/` の plist と一緒にバンドルにする |
-| `Sources/curstyle-probe` | 非公開 API の実測用ツール |
-| `Sources/curstyle-overlay-probe` | OverlayBackend の実測・自動判定用ツール |
+| `Sources/CurstyleApp` | SwiftUI アプリ |
+| `Sources/CursorKit` | テーマの取り込み・編集・適用・復元・診断・自動再適用 |
+| `Sources/CursorKit/Overlay` | OverlayBackend |
+| `Sources/CCursorBridge` | 非公開 API の C ブリッジ。シンボルは `dlsym` で解決 |
+| `Sources/curstyle` | CLI と常駐ヘルパー |
+| `Sources/curstyle-probe` / `Sources/curstyle-overlay-probe` | 非公開 API・描画方式の測定ツール |
+| `Tests/CursorKitTests` | カーソルの取り込み・アニメーション変換のテスト |
+| `Support` / `make-app.sh` | アプリのバンドル設定と組み立て |
+
+```bash
+swift build
+swift test
+```
 
 ## ライセンス
 
-[MIT](LICENSE)
+Curstyle のソースコードのライセンスは [MIT License](LICENSE) です。外部から取り込むカーソルテーマや画像の利用条件は、それぞれの配布元を確認してください。

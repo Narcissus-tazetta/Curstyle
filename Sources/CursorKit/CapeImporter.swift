@@ -9,6 +9,7 @@ public enum CapeImporter {
         public var theme: CursorTheme
         /// 取り込まなかった識別子と理由。
         public var skipped: [String]
+        public var adjustments: [String]
     }
 
     public static func importTheme(file: URL, name: String?) throws -> Result {
@@ -24,6 +25,7 @@ public enum CapeImporter {
 
         var cursors: [String: CursorRep] = [:]
         var skipped: [String] = []
+        var adjustments: [String] = []
         var usedTargets = Set<String>()
         // Arrow と ArrowS の両方があれば、macOS 27.2 で表示に効く S の方を残す。S を先に処理する。
         for id in entries.keys.sorted(by: { ($0.hasSuffix("S") ? 0 : 1, $0) < ($1.hasSuffix("S") ? 0 : 1, $1) }) {
@@ -33,8 +35,8 @@ public enum CapeImporter {
             }
             guard cursors[key] == nil else { continue }
             do {
-                let rep = try cursorRep(entries[id]!)
-                try rep.validate()
+                let imported = try cursorRep(entries[id]!).importingAnimation()
+                let rep = imported.rep
                 // cursor.7 と 8 のように同じ登録先へ当たる組は、先に来た方だけ残す(resolvedPlan が重複を拒否するため)。
                 let names = try CursorCatalog.targets(for: key)
                 guard names.allSatisfy({ !usedTargets.contains($0) }) else {
@@ -43,6 +45,7 @@ public enum CapeImporter {
                 }
                 usedTargets.formUnion(names)
                 cursors[key] = rep
+                if let adjustment = imported.adjustment { adjustments.append("\(key): \(adjustment)") }
             } catch {
                 skipped.append("\(id)(\(error))")
             }
@@ -51,7 +54,7 @@ public enum CapeImporter {
             throw CursorKitError.theme("\(file.lastPathComponent) に取り込めるカーソルが無い: \(skipped.joined(separator: ", "))")
         }
         let themeName = name ?? (root["CapeName"] as? String) ?? file.deletingPathExtension().lastPathComponent
-        return Result(theme: CursorTheme(name: themeName, cursors: cursors), skipped: skipped)
+        return Result(theme: CursorTheme(name: themeName, cursors: cursors), skipped: skipped, adjustments: adjustments)
     }
 
     /// 画面に出す名前がそのまま役割名になるよう、番号を分かっている役割名に置き換える。

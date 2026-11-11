@@ -9,7 +9,7 @@ struct ImportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var pixelsPerPoint = 1
-    @State private var result: Result<(theme: CursorTheme, skipped: [String]), Error>?
+    @State private var result: Result<(theme: CursorTheme, skipped: [String], adjustments: [String]), Error>?
 
     init(model: AppModel, source: URL) {
         self.model = model
@@ -91,8 +91,8 @@ struct ImportSheet: View {
     private var preview: some View {
         switch result {
         case .success(let parsed)?:
-            VStack(alignment: .leading, spacing: 8) {
-                ScrollView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)], spacing: 8) {
                         ForEach(parsed.theme.cursors.keys.sorted(by: tileOrder), id: \.self) { key in
                             let rep = parsed.theme.cursors[key]!
@@ -109,16 +109,22 @@ struct ImportSheet: View {
                         }
                     }
                     .padding(10)
-                }
-                .cardBackground()
-                if !parsed.skipped.isEmpty {
-                    Label(
-                        "取り込まないもの: \(parsed.skipped.sorted().joined(separator: ", "))",
-                        systemImage: "info.circle"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .cardBackground()
+                    ForEach(parsed.adjustments, id: \.self) { adjustment in
+                        Label(adjustment, systemImage: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if !parsed.skipped.isEmpty {
+                        Label(
+                            "取り込まないもの: \(parsed.skipped.sorted().joined(separator: ", "))",
+                            systemImage: "info.circle"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         case .failure(let error)?:

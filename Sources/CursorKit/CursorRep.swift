@@ -48,8 +48,41 @@ public struct CursorRep: Sendable {
     /// テーマ由来の画像だけに適用する。OS が登録した標準画像は size と画像寸法が
     /// 食い違うことがある(IBeamS: size 22x23 / 画像 23x22)ので、スナップショットには使わない。
     public func validate() throws {
+        try validate(frameLimit: Self.maxAnimationFrames)
+    }
+
+    // SLSRegisterCursorWithImages2 は25コマ以上をエラー1000で拒否する。
+    static let maxAnimationFrames = 24
+
+    func importingAnimation() throws -> (rep: CursorRep, adjustment: String?) {
+        try validate(frameLimit: max(frameCount, Self.maxAnimationFrames))
+        guard frameCount > Self.maxAnimationFrames else { return (self, nil) }
+        let count = Self.maxAnimationFrames
+        let strips = try images.map { strip in
+            let height = strip.height / frameCount
+            let frames = try (0..<count).map { i in
+                let index = i * frameCount / count
+                guard
+                    let frame = strip.cropping(
+                        to: CGRect(x: 0, y: index * height, width: strip.width, height: height))
+                else { throw CursorKitError.io("コマ \(index) を切り出せない") }
+                return frame
+            }
+            return try WindowsCursorImporter.stack(frames)
+        }
+        var rep = self
+        rep.images = strips
+        rep.frameCount = count
+        rep.frameDuration = frameDuration * Double(frameCount) / Double(count)
+        try rep.validate()
+        return (rep, "\(frameCount) → \(count) コマに間引きました（1周の時間は維持・動きの滑らかさは低下します）")
+    }
+
+    private func validate(frameLimit: Int) throws {
         func fail(_ reason: String) -> CursorKitError { .invalidCursor(reason) }
-        guard (1...24).contains(frameCount) else { throw fail("frameCount=\(frameCount) は 1〜24 の範囲外") }
+        guard (1...frameLimit).contains(frameCount) else {
+            throw fail("frameCount=\(frameCount) は 1〜\(frameLimit) の範囲外")
+        }
         guard size.width >= 1, size.height >= 1, size.width <= 256, size.height <= 256 else {
             throw fail("size=\(size) は 1〜256pt の範囲外")
         }
@@ -57,8 +90,9 @@ public struct CursorRep: Sendable {
             throw fail("hotspot=\(hotspot) が size=\(size) の外")
         }
         if frameCount > 1 {
-            guard frameDuration > 0, frameDuration <= 2 else {
-                throw fail("frameDuration=\(frameDuration) は (0, 2] 秒の範囲外")
+            let storedDuration = Float(frameDuration)
+            guard storedDuration.isFinite, storedDuration > 0 else {
+                throw fail("frameDuration=\(frameDuration) は Float32 で表せる正の有限な秒数で指定する")
             }
         }
         guard !images.isEmpty, images.count <= 8 else { throw fail("画像の数 \(images.count) は 1〜8 の範囲外") }

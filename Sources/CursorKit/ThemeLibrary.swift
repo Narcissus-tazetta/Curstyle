@@ -103,21 +103,27 @@ extension CursorTheme {
     /// 取り込み元の形式を見て読む。.cape ファイル、Curstyle のテーマ(theme.json)、Windows のカーソルフォルダ。
     /// skipped は取り込まなかったファイル・識別子(利用者に見せる)。
     public static func importSource(_ url: URL, name: String?, pixelsPerPoint: Int) throws -> (
-        theme: CursorTheme, skipped: [String]
+        theme: CursorTheme, skipped: [String], adjustments: [String]
     ) {
         if url.pathExtension.lowercased() == "cape" {
             let result = try CapeImporter.importTheme(file: url, name: name)
-            return (result.theme, result.skipped)
+            return (result.theme, result.skipped, result.adjustments)
         }
         if FileManager.default.fileExists(atPath: url.appendingPathComponent("theme.json").path) {
             var theme = try CursorTheme.load(directory: url)
             if let name { theme.name = name }
-            return (theme, [])
+            var adjustments: [String] = []
+            for key in theme.cursors.keys.sorted() {
+                let imported = try theme.cursors[key]!.importingAnimation()
+                theme.cursors[key] = imported.rep
+                if let adjustment = imported.adjustment { adjustments.append("\(key): \(adjustment)") }
+            }
+            return (theme, [], adjustments)
         }
         let result = try WindowsCursorImporter.importTheme(
             directory: windowsCursorDirectory(in: url),
             name: name ?? url.deletingPathExtension().lastPathComponent, pixelsPerPoint: pixelsPerPoint)
-        return (result.theme, result.skippedFiles)
+        return (result.theme, result.skippedFiles, result.adjustments)
     }
 
     /// 配布されている Windows のテーマは `<名前>.cursor/Cursors/` のように1階層下に .ani / .cur を置いていることが多い。

@@ -19,7 +19,7 @@ extension CursorRep {
 
     /// GIF / PNG などの画像ファイルから作る。長い辺を pointSize pt にそろえ、1x と 2x の画像を作る。
     /// GIF はすべてのコマを読み、PNG などは先頭の1枚だけを使う。ホットスポットは左上(呼び出し側で決める)。
-    public static func fromImageFile(_ url: URL, pointSize: Double) throws -> CursorRep {
+    public static func fromImageFile(_ url: URL, pointSize: Double) throws -> (rep: CursorRep, adjustment: String?) {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             throw CursorKitError.io("画像を読めない: \(url.lastPathComponent)")
         }
@@ -47,11 +47,6 @@ extension CursorRep {
             sequence = zip(frames, delays).flatMap { Array(repeating: $0, count: $1 / unit) }
             duration = Double(unit) / 100
         }
-        guard sequence.count <= 24 else {
-            throw CursorKitError.invalidCursor(
-                "コマ数 \(sequence.count) が多すぎる(macOS のカーソルは 24 コマまで)\(sequence.count > frames.count ? "。表示時間の違うコマを等間隔にそろえた後の数" : "")"
-            )
-        }
 
         let longer = Double(max(first.width, first.height))
         let size = CGSize(
@@ -63,8 +58,9 @@ extension CursorRep {
                 strip, frameCount: sequence.count,
                 to: CGSize(width: size.width * Double($0), height: size.height * Double($0)))
         }
-        return CursorRep(
-            size: size, hotspot: .zero, frameCount: sequence.count, frameDuration: duration, images: images)
+        return try CursorRep(
+            size: size, hotspot: .zero, frameCount: sequence.count, frameDuration: duration, images: images
+        ).importingAnimation()
     }
 
     /// ブラウザと同じく、0.02 秒未満の指定は 0.1 秒として扱う(作者がブラウザで見た速さに合わせる)。

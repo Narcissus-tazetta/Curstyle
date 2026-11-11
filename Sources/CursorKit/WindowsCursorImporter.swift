@@ -44,6 +44,7 @@ public enum WindowsCursorImporter {
     public struct Result {
         public var theme: CursorTheme
         public var skippedFiles: [String]
+        public var adjustments: [String]
     }
 
     /// pixelsPerPoint: 画像1枚の何ピクセルを1ptとみなすか。Windows の 32px を Retina で 32px のまま見せるなら 2。
@@ -52,6 +53,7 @@ public enum WindowsCursorImporter {
         let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         var cursors: [String: CursorRep] = [:]
         var skipped: [String] = []
+        var adjustments: [String] = []
         let infMap = loadINFRoleMap(for: directory)
 
         // 同じ役割に .ani と .cur があれば .ani(アニメ)を優先する。
@@ -76,15 +78,20 @@ public enum WindowsCursorImporter {
             guard keys.allSatisfy({ cursors[$0] == nil }) else { continue }
             let rep: CursorRep
             do {
-                rep = try cursorRep(
-                    from: Data(contentsOf: file), isAnimated: ext == "ani", pixelsPerPoint: pixelsPerPoint)
+                let imported = try cursorRep(
+                    from: Data(contentsOf: file), isAnimated: ext == "ani", pixelsPerPoint: pixelsPerPoint
+                ).importingAnimation()
+                rep = imported.rep
+                if let adjustment = imported.adjustment {
+                    adjustments.append("\(file.lastPathComponent): \(adjustment)")
+                }
             } catch {
                 throw CursorKitError.theme("\(file.lastPathComponent): \(error)")
             }
             for key in keys { cursors[key] = rep }
         }
         guard !cursors.isEmpty else { throw CursorKitError.theme("\(directory.path) に取り込める .ani / .cur が無い") }
-        return Result(theme: CursorTheme(name: name, cursors: cursors), skippedFiles: skipped)
+        return Result(theme: CursorTheme(name: name, cursors: cursors), skippedFiles: skipped, adjustments: adjustments)
     }
 
     // MARK: - 役割判定

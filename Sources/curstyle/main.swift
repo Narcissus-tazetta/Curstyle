@@ -151,6 +151,7 @@ do {
         _ = try result.theme.resolvedPlan()
         try result.theme.write(directory: URL(fileURLWithPath: args[1], isDirectory: true))
         print("書き出した: \(args[1])(\(result.theme.cursors.count) 件)")
+        for adjustment in result.adjustments { print("調整: \(adjustment)") }
         if !result.skipped.isEmpty {
             print("取り込まなかった: \(result.skipped.sorted().joined(separator: ", "))")
         }

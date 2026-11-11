@@ -20,30 +20,10 @@ struct SidebarView: View {
                 }
             }
             Section("ツール") {
-                Label {
-                    HStack {
-                        Text("診断")
-                        Spacer()
-                        if model.warningCount > 0 {
-                            Text("\(model.warningCount)")
-                                .font(.caption.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1)
-                                .background(Color.orange, in: Capsule())
-                                .accessibilityLabel("警告 \(model.warningCount) 件")
-                        }
-                    }
-                } icon: {
-                    IconTile(systemImage: "stethoscope", tint: .teal)
-                }
-                .tag(SidebarItem.diagnostics)
-                Label {
-                    Text("設定")
-                } icon: {
-                    IconTile(systemImage: "gearshape.fill", tint: .gray)
-                }
-                .tag(SidebarItem.settings)
+                ToolRow(title: "診断", systemImage: "stethoscope", tint: .teal, warningCount: model.warningCount)
+                    .tag(SidebarItem.diagnostics)
+                ToolRow(title: "設定", systemImage: "gearshape.fill", tint: .gray)
+                    .tag(SidebarItem.settings)
             }
         }
         .listStyle(.sidebar)
@@ -60,6 +40,31 @@ struct SidebarView: View {
                 .iconHelp("テーマを取り込む")
             }
         }
+    }
+}
+
+private struct ToolRow: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+    var warningCount = 0
+
+    var body: some View {
+        HStack(spacing: 10) {
+            IconTile(systemImage: systemImage, tint: tint, size: 30)
+            Text(title)
+            Spacer(minLength: 4)
+            if warningCount > 0 {
+                Text("\(warningCount)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.orange, in: Capsule())
+                    .accessibilityLabel("警告 \(warningCount) 件")
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
 

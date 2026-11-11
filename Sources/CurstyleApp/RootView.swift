@@ -14,7 +14,8 @@ struct RootView: View {
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 820, minHeight: 560)
+        // 開閉中は分割ビューの要求幅が窓幅を超えるため、中央揃えだと列全体が左へずれる。
+        .frame(minWidth: 820, maxWidth: .infinity, minHeight: 560, maxHeight: .infinity, alignment: .leading)
         .overlay(alignment: .top) {
             if let banner = model.banner {
                 BannerView(banner: banner) { model.banner = nil }

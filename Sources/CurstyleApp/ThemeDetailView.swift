@@ -10,6 +10,7 @@ struct ThemeDetailView: View {
     @State private var confirmsDelete = false
     @State private var editingKey: EditingKey?
     @State private var editsSpeed = false
+    @State private var editsSize = false
     @FocusState private var nameFocused: Bool
 
     private var isActive: Bool { model.isActive(entry) }
@@ -72,6 +73,9 @@ struct ThemeDetailView: View {
         }
         .sheet(item: $editingKey) { editing in
             CursorEditorSheet(model: model, entry: entry, key: editing.key)
+        }
+        .sheet(isPresented: $editsSize) {
+            CursorSizeSheet(model: model, entry: entry)
         }
         .sheet(isPresented: $editsSpeed) {
             AnimationSpeedSheet(model: model, entry: entry)
@@ -169,6 +173,7 @@ struct ThemeDetailView: View {
                     }
                     Spacer()
                     Menu {
+                        Button("カーソルの大きさを一括で変える…") { editsSize = true }
                         if maxFrames ?? 1 > 1 {
                             Button("アニメの速さを一括で変える…") { editsSpeed = true }
                         }

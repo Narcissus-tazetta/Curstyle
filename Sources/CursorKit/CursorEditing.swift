@@ -17,6 +17,32 @@ extension CursorRep {
         return rep
     }
 
+    /// 大きさを factor 倍にする。画像は最も大きい元画像から作り直す(縮小した画像をもう一度拡大して劣化させない)。
+    /// 登録形式は「画像幅が size.width の整数倍」を要求するので、size は整数 pt に丸めてから各画像の倍率を掛ける。
+    public func scalingSize(by factor: Double) throws -> CursorRep {
+        let newSize = CGSize(
+            width: max(1, (size.width * factor).rounded()), height: max(1, (size.height * factor).rounded()))
+        guard let largest = images.max(by: { $0.width < $1.width }) else {
+            throw CursorKitError.invalidCursor("画像が無い")
+        }
+        let pixelScales = images.map { Double($0.width) / size.width }
+        var rep = self
+        rep.size = newSize
+        rep.images = try zip(images, pixelScales).map { _, scale in
+            try resampleStrip(
+                largest, frameCount: frameCount,
+                to: CGSize(width: newSize.width * scale, height: newSize.height * scale))
+        }
+        // 0.5pt 刻み(Retina の1画素)にそろえる。
+        func snap(_ v: CGFloat, _ ratio: CGFloat, _ upper: CGFloat) -> CGFloat {
+            min(max((v * ratio * 2).rounded() / 2, 0), upper)
+        }
+        rep.hotspot = CGPoint(
+            x: snap(hotspot.x, newSize.width / size.width, newSize.width),
+            y: snap(hotspot.y, newSize.height / size.height, newSize.height))
+        return rep
+    }
+
     /// GIF / PNG などの画像ファイルから作る。長い辺を pointSize pt にそろえ、1x と 2x の画像を作る。
     /// GIF はすべてのコマを読み、PNG などは先頭の1枚だけを使う。ホットスポットは左上(呼び出し側で決める)。
     public static func fromImageFile(_ url: URL, pointSize: Double) throws -> (rep: CursorRep, adjustment: String?) {
@@ -78,6 +104,18 @@ extension CursorRep {
 }
 
 extension CursorTheme {
+    /// すべてのカーソルの大きさを factor 倍にする。同じ画像を共有するキーは同じ結果になるよう、1回だけ作って使い回す。
+    public func scalingSize(by factor: Double) throws -> CursorTheme {
+        var theme = self
+        var cache: [String: CursorRep] = [:]
+        for (key, rep) in cursors {
+            let hash = rep.contentHash
+            if cache[hash] == nil { cache[hash] = try rep.scalingSize(by: factor) }
+            theme.cursors[key] = cache[hash]
+        }
+        return theme
+    }
+
     /// アニメの速さを factor 倍にする(2 なら1コマの時間が半分)。静止画は変えない。
     public func scalingAnimationSpeed(by factor: Double) -> CursorTheme {
         var theme = self

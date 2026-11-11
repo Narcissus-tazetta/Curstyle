@@ -347,3 +347,97 @@ struct AnimationSpeedSheet: View {
         .frame(width: 460)
     }
 }
+
+/// テーマ全体のカーソルの大きさを一括で変える。
+struct CursorSizeSheet: View {
+    let model: AppModel
+    let entry: ThemeLibrary.Entry
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var factor = 1.0
+    @State private var saveError: String?
+
+    private static let maxSide: CGFloat = 256
+
+    private var previewKeys: [String] {
+        let preferred = ["arrow", "ibeam", "pointingHand"].filter { entry.theme.cursors[$0] != nil }
+        return Array((preferred + entry.theme.cursors.keys.sorted().filter { !preferred.contains($0) }).prefix(4))
+    }
+
+    private var largestSide: CGFloat {
+        entry.theme.cursors.values.map { max($0.size.width, $0.size.height) }.max() ?? 0
+    }
+
+    private var sizeError: String? {
+        (largestSide * factor).rounded() > Self.maxSide
+            ? "最大のカーソルが \(Int(Self.maxSide)) pt を超えます(\(Int((largestSide * factor).rounded())) pt)" : nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                IconTile(systemImage: "arrow.up.left.and.arrow.down.right", tint: .teal, size: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("カーソルの大きさを一括で変える").font(.title3.weight(.semibold))
+                    Text("\(entry.theme.cursors.count) 件のカーソルに同じ倍率をかけます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            HStack(spacing: 12) {
+                ForEach(previewKeys, id: \.self) { key in
+                    let rep = (try? entry.theme.cursors[key]!.scalingSize(by: factor)) ?? entry.theme.cursors[key]!
+                    VStack(spacing: 4) {
+                        ZStack {
+                            BackdropView(backdrop: model.backdrop, cornerRadius: 8)
+                            CursorPreview(rep: rep, zoom: 1)
+                        }
+                        .frame(width: 84, height: 84)
+                        Text("\(Int(rep.size.width))×\(Int(rep.size.height)) pt")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Slider(value: $factor, in: 0.1...5, step: 0.1) {
+                    Text("大きさ")
+                } minimumValueLabel: {
+                    Text("0.1×")
+                } maximumValueLabel: {
+                    Text("5×")
+                }
+                Text(String(format: "%.1f 倍", factor))
+                    .font(.callout.monospacedDigit().weight(.medium))
+                if factor > 1 {
+                    Text("元の画像より大きくすると、輪郭がぼやけます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            HStack {
+                if let message = sizeError ?? saveError {
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Button("キャンセル", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("保存") {
+                    do {
+                        if model.update(entry, with: try entry.theme.scalingSize(by: factor)) { dismiss() }
+                    } catch {
+                        saveError = "\(error)"
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(sizeError != nil || abs(factor - 1) < 0.01)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+}

@@ -187,3 +187,43 @@ final class AnimationImportTests: XCTestCase {
         return ctx.makeImage()!
     }
 }
+
+final class CursorSizeScalingTests: XCTestCase {
+    private func rep(frames: Int) throws -> CursorRep {
+        func strip(_ scale: Int) throws -> CGImage {
+            try WindowsCursorImporter.stack(
+                (0..<frames).map { _ in
+                    let ctx = CGContext(
+                        data: nil, width: 16 * scale, height: 16 * scale, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    ctx.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+                    ctx.fill(CGRect(x: 0, y: 0, width: 16 * scale, height: 16 * scale))
+                    return ctx.makeImage()!
+                })
+        }
+        return CursorRep(
+            size: CGSize(width: 16, height: 16), hotspot: CGPoint(x: 4, y: 8), frameCount: frames,
+            frameDuration: frames > 1 ? 0.1 : 0, images: try [1, 2].map(strip))
+    }
+
+    func testScalingKeepsRegistrationInvariants() throws {
+        for frames in [1, 6] {
+            for factor in [0.5, 1.5, 2.0] {
+                let scaled = try rep(frames: frames).scalingSize(by: factor)
+                try scaled.validate()
+                XCTAssertEqual(scaled.size, CGSize(width: 16 * factor, height: 16 * factor))
+                XCTAssertEqual(scaled.hotspot, CGPoint(x: 4 * factor, y: 8 * factor))
+                XCTAssertEqual(scaled.frameCount, frames)
+                XCTAssertEqual(scaled.frameDuration, frames > 1 ? 0.1 : 0)
+            }
+        }
+    }
+
+    func testThemeScalingSharesResultAcrossIdenticalCursors() throws {
+        let a = try rep(frames: 1)
+        let theme = CursorTheme(name: "t", cursors: ["arrow": a, "ibeam": a])
+        let scaled = try theme.scalingSize(by: 2)
+        XCTAssertEqual(scaled.cursors["arrow"]!.contentHash, scaled.cursors["ibeam"]!.contentHash)
+    }
+}

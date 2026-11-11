@@ -128,7 +128,7 @@ struct ThemeDetailView: View {
                         StatusPill(text: "適用中のものと内容が違います", systemImage: "exclamationmark.circle.fill", tint: .orange)
                     }
                     if let frames = maxFrames, frames > 1 {
-                        StatusPill(text: "アニメ \(frames) コマ", systemImage: "film", tint: .purple)
+                        StatusPill(text: "アニメ \(frames) コマ", systemImage: "film", tint: .cyan)
                     }
                     StatusPill(text: "\(entry.theme.cursors.count) 種類", systemImage: "cursorarrow", tint: .secondary)
                     StatusPill(text: sizeText, systemImage: "arrow.up.left.and.arrow.down.right", tint: .secondary)

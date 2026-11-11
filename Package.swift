@@ -37,5 +37,9 @@ let package = Package(
             name: "curstyle-overlay-probe",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .testTarget(
+            name: "CursorKitTests",
+            dependencies: ["CursorKit"]
+        ),
     ]
 )

@@ -1,17 +1,20 @@
 import CursorKit
 import SwiftUI
 
-/// フレームの切り出しは重くないが、グリッドの再描画のたびにやり直さないよう CursorRep の contentHash で覚える。
+/// グリッドの再描画や、編集中のホットスポットのドラッグのたびに切り出し直さないよう、元画像ごとに覚える。
+/// キーは画像の同一性(contentHash は画像全体を描き直すので、ドラッグ中に毎回計算するには重い)。
+/// 値に元画像も持たせて解放させないので、同じ ObjectIdentifier が別の画像に使い回されることはない。
 @MainActor
 final class FrameCache {
     static let shared = FrameCache()
-    private var frames: [String: (frames: [CGImage], scale: Int)] = [:]
+    private var frames: [ObjectIdentifier: (source: CGImage, frameCount: Int, frames: [CGImage], scale: Int)] = [:]
 
     func frames(for rep: CursorRep) -> (frames: [CGImage], scale: Int) {
-        let key = rep.contentHash
-        if let hit = frames[key] { return hit }
+        guard let source = rep.images.max(by: { $0.width < $1.width }) else { return ([], 1) }
+        let key = ObjectIdentifier(source)
+        if let hit = frames[key], hit.frameCount == rep.frameCount { return (hit.frames, hit.scale) }
         let made = rep.previewFrames()
-        frames[key] = made
+        frames[key] = (source, rep.frameCount, made.frames, made.scale)
         return made
     }
 }

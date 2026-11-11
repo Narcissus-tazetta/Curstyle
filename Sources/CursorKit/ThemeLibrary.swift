@@ -68,7 +68,25 @@ public final class ThemeLibrary: @unchecked Sendable {
     public func rename(_ entry: Entry, to name: String) throws -> Entry {
         var theme = entry.theme
         theme.name = name
-        try theme.write(directory: entry.directory)
+        return try update(entry, with: theme)
+    }
+
+    /// 中身を置き換える。別の場所に書いてから差し替えるので、途中で失敗しても元のテーマが残り、
+    /// 使わなくなった画像も残らない。
+    @discardableResult
+    public func update(_ entry: Entry, with theme: CursorTheme) throws -> Entry {
+        _ = try theme.resolvedPlan()
+        let fm = FileManager.default
+        let staging = root.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try theme.write(directory: staging)
+            // 一覧は作成日順なので、差し替えで並びが変わらないよう元の日付を引き継ぐ。
+            try fm.setAttributes([.creationDate: entry.addedAt], ofItemAtPath: staging.path)
+            _ = try fm.replaceItemAt(entry.directory, withItemAt: staging)
+        } catch {
+            try? fm.removeItem(at: staging)
+            throw error
+        }
         var updated = entry
         updated.theme = theme
         updated.fingerprint = theme.fingerprint
@@ -82,18 +100,23 @@ extension CursorTheme {
         cursors.keys.sorted().map { "\($0)=\(cursors[$0]!.contentHash)" }.joined(separator: ";")
     }
 
-    /// 取り込み元がどちらの形式かを見て読む。Curstyle のテーマ(theme.json)か、Windows のカーソルフォルダ。
-    public static func importFolder(_ directory: URL, name: String?, pixelsPerPoint: Int) throws -> (
-        theme: CursorTheme, skippedFiles: [String]
+    /// 取り込み元の形式を見て読む。.cape ファイル、Curstyle のテーマ(theme.json)、Windows のカーソルフォルダ。
+    /// skipped は取り込まなかったファイル・識別子(利用者に見せる)。
+    public static func importSource(_ url: URL, name: String?, pixelsPerPoint: Int) throws -> (
+        theme: CursorTheme, skipped: [String]
     ) {
-        if FileManager.default.fileExists(atPath: directory.appendingPathComponent("theme.json").path) {
-            var theme = try CursorTheme.load(directory: directory)
+        if url.pathExtension.lowercased() == "cape" {
+            let result = try CapeImporter.importTheme(file: url, name: name)
+            return (result.theme, result.skipped)
+        }
+        if FileManager.default.fileExists(atPath: url.appendingPathComponent("theme.json").path) {
+            var theme = try CursorTheme.load(directory: url)
             if let name { theme.name = name }
             return (theme, [])
         }
         let result = try WindowsCursorImporter.importTheme(
-            directory: windowsCursorDirectory(in: directory),
-            name: name ?? directory.deletingPathExtension().lastPathComponent, pixelsPerPoint: pixelsPerPoint)
+            directory: windowsCursorDirectory(in: url),
+            name: name ?? url.deletingPathExtension().lastPathComponent, pixelsPerPoint: pixelsPerPoint)
         return (result.theme, result.skippedFiles)
     }
 

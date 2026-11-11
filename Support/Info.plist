@@ -16,6 +16,18 @@
 				<string>public.folder</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Mousecape Cape</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>cape</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ja</string>

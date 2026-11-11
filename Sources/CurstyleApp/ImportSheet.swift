@@ -9,7 +9,7 @@ struct ImportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var pixelsPerPoint = 1
-    @State private var result: Result<(theme: CursorTheme, skippedFiles: [String]), Error>?
+    @State private var result: Result<(theme: CursorTheme, skipped: [String]), Error>?
 
     init(model: AppModel, source: URL) {
         self.model = model
@@ -20,6 +20,11 @@ struct ImportSheet: View {
     private var isCurstyleTheme: Bool {
         FileManager.default.fileExists(atPath: source.appendingPathComponent("theme.json").path)
     }
+
+    private var isCape: Bool { source.pathExtension.lowercased() == "cape" }
+
+    /// 大きさを選べるのは Windows のフォルダだけ(ほかは pt が決まっている)。
+    private var choosesScale: Bool { !isCurstyleTheme && !isCape }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -37,7 +42,7 @@ struct ImportSheet: View {
 
             Form {
                 TextField("名前", text: $name)
-                if !isCurstyleTheme {
+                if choosesScale {
                     Picker("大きさ", selection: $pixelsPerPoint) {
                         Text("標準(1 px = 1 pt)").tag(1)
                         Text("小さめ(2 px = 1 pt)").tag(2)
@@ -51,7 +56,7 @@ struct ImportSheet: View {
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
-            .frame(height: isCurstyleTheme ? 60 : 150)
+            .frame(height: choosesScale ? 150 : 60)
 
             preview
                 .frame(height: 220)
@@ -106,9 +111,9 @@ struct ImportSheet: View {
                     .padding(10)
                 }
                 .cardBackground()
-                if !parsed.skippedFiles.isEmpty {
+                if !parsed.skipped.isEmpty {
                     Label(
-                        "macOS に対応するカーソルが無いので取り込みません: \(parsed.skippedFiles.sorted().joined(separator: ", "))",
+                        "取り込まないもの: \(parsed.skipped.sorted().joined(separator: ", "))",
                         systemImage: "info.circle"
                     )
                     .font(.caption)
@@ -121,7 +126,7 @@ struct ImportSheet: View {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 28))
                     .foregroundStyle(.orange)
-                Text("このフォルダは取り込めません").font(.headline)
+                Text(isCape ? "この .cape は取り込めません" : "このフォルダは取り込めません").font(.headline)
                 Text("\(error)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -144,10 +149,10 @@ struct ImportSheet: View {
 
     private func parse() {
         do {
-            let parsed = try CursorTheme.importFolder(source, name: nil, pixelsPerPoint: pixelsPerPoint)
+            let parsed = try CursorTheme.importSource(source, name: nil, pixelsPerPoint: pixelsPerPoint)
             // 適用時に初めて弾かれないよう、取り込む前に同じ検証を通す。
             _ = try parsed.theme.resolvedPlan()
-            if isCurstyleTheme { name = parsed.theme.name }
+            if !choosesScale { name = parsed.theme.name }
             result = .success(parsed)
         } catch {
             result = .failure(error)

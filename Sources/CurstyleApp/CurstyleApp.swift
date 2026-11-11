@@ -47,7 +47,7 @@ struct CurstyleApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// Dock のアイコンへのドロップや `open -a Curstyle <フォルダ>` で渡されたフォルダを取り込みシートに回す。
+    /// Dock のアイコンへのドロップや `open -a Curstyle <フォルダ / .cape>` で渡されたものを取り込みシートに回す。
     /// 起動と同時に渡されるとウィンドウより先に届くので、受け手ができるまで取っておく。
     var openFolder: ((URL) -> Void)? {
         didSet {

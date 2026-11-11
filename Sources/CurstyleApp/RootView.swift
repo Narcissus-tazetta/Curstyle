@@ -73,10 +73,11 @@ extension URL: @retroactive Identifiable {
 func chooseImportFolder(model: AppModel) {
     let panel = NSOpenPanel()
     panel.canChooseDirectories = true
-    panel.canChooseFiles = false
+    panel.canChooseFiles = true
+    panel.allowedContentTypes = [.folder, UTType(filenameExtension: "cape") ?? .propertyList]
     panel.allowsMultipleSelection = false
     panel.prompt = "選択"
-    panel.message = "Windows のカーソルテーマ(.ani / .cur)か、Curstyle のテーマ(theme.json)のフォルダを選んでください"
+    panel.message = "Windows のカーソルテーマ(.ani / .cur)のフォルダ、.cape ファイル、Curstyle のテーマ(theme.json)のフォルダを選んでください"
     guard panel.runModal() == .OK, let url = panel.url else { return }
     model.importSource = url
 }

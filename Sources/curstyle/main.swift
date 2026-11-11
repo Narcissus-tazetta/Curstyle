@@ -14,9 +14,9 @@ let usage = """
         --kill-after N             失敗注入: N 回の登録の後、プロセスを SIGKILL する(restore を確かめる)
       make-theme <dir> [--labels | --overlay-check]  テスト画像をテーマディレクトリとして書き出す。
                                    --labels は全 cursor.N に番号を描いたテーマ、--overlay-check は役割ごとに単色の検証用テーマ
-      import <windows-dir> <theme-dir> [--scale N] [--name NAME]
-                                   Windows のカーソルフォルダ(Normal.ani など)をテーマディレクトリに変換する。
-                                   --scale は画像の何ピクセルを 1pt とみなすか(既定 1。2 は Retina で原寸だが小さく見える)
+      import <source> <theme-dir> [--scale N] [--name NAME]
+                                   .cape ファイルか Windows のカーソルフォルダ(Normal.ani など)をテーマディレクトリに変換する。
+                                   --scale は Windows の画像の何ピクセルを 1pt とみなすか(既定 1。2 は Retina で原寸だが小さく見える)
       restore                      スナップショットから標準へ戻す(テーマのコードを通らない独立経路)。overlay なら描画を止める
       reset-system                 スナップショットを使わずに OS の標準へ戻す(ポインター色リセット時の再登録と同じ処理)
       helper install               ログイン時に起動する自動再適用ヘルパーを LaunchAgent として登録し、起動する
@@ -145,14 +145,14 @@ do {
     case "import":
         let scale = takeOption("--scale") ?? 1
         let name = takeValue("--name")
-        guard args.count == 2 else { fail("import には Windows のフォルダと書き出し先が要る\n\(usage)", code: 2) }
-        let source = URL(fileURLWithPath: args[0], isDirectory: true)
-        let result = try WindowsCursorImporter.importTheme(
-            directory: source, name: name ?? source.lastPathComponent, pixelsPerPoint: scale)
+        guard args.count == 2 else { fail("import には取り込み元と書き出し先が要る\n\(usage)", code: 2) }
+        let source = URL(fileURLWithPath: args[0])
+        let result = try CursorTheme.importSource(source, name: name, pixelsPerPoint: scale)
+        _ = try result.theme.resolvedPlan()
         try result.theme.write(directory: URL(fileURLWithPath: args[1], isDirectory: true))
         print("書き出した: \(args[1])(\(result.theme.cursors.count) 件)")
-        if !result.skippedFiles.isEmpty {
-            print("対応する macOS のカーソルが無いので取り込まなかった: \(result.skippedFiles.sorted().joined(separator: ", "))")
+        if !result.skipped.isEmpty {
+            print("取り込まなかった: \(result.skipped.sorted().joined(separator: ", "))")
         }
 
     case "status":

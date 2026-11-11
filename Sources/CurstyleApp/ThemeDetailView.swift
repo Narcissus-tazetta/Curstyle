@@ -8,9 +8,17 @@ struct ThemeDetailView: View {
     @State private var isRenaming = false
     @State private var draftName = ""
     @State private var confirmsDelete = false
+    @State private var editingKey: EditingKey?
+    @State private var editsSpeed = false
     @FocusState private var nameFocused: Bool
 
     private var isActive: Bool { model.isActive(entry) }
+    private var hasPendingChanges: Bool { model.hasPendingChanges(entry) }
+
+    private struct EditingKey: Identifiable {
+        let key: String
+        var id: String { key }
+    }
 
     var body: some View {
         ScrollView {
@@ -24,9 +32,15 @@ struct ThemeDetailView: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 132, maximum: 180), spacing: 10)], spacing: 10)
                         {
                             ForEach(section.keys, id: \.self) { key in
-                                CursorTile(
-                                    key: key, rep: entry.theme.cursors[key]!, backdrop: model.backdrop,
-                                    showsHotspot: model.showsHotspot)
+                                Button {
+                                    editingKey = EditingKey(key: key)
+                                } label: {
+                                    CursorTile(
+                                        key: key, rep: entry.theme.cursors[key]!, backdrop: model.backdrop,
+                                        showsHotspot: model.showsHotspot)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(model.busyMessage != nil)
                             }
                         }
                     }
@@ -55,6 +69,12 @@ struct ThemeDetailView: View {
                 }
                 .iconHelp("クリック位置(ホットスポット)を表示")
             }
+        }
+        .sheet(item: $editingKey) { editing in
+            CursorEditorSheet(model: model, entry: entry, key: editing.key)
+        }
+        .sheet(isPresented: $editsSpeed) {
+            AnimationSpeedSheet(model: model, entry: entry)
         }
         .confirmationDialog(
             "「\(entry.theme.name)」をゴミ箱に入れますか?", isPresented: $confirmsDelete, titleVisibility: .visible
@@ -104,6 +124,8 @@ struct ThemeDetailView: View {
                 HStack(spacing: 6) {
                     if isActive {
                         StatusPill(text: "適用中", systemImage: "checkmark.circle.fill")
+                    } else if hasPendingChanges {
+                        StatusPill(text: "適用中のものと内容が違います", systemImage: "exclamationmark.circle.fill", tint: .orange)
                     }
                     if let frames = maxFrames, frames > 1 {
                         StatusPill(text: "アニメ \(frames) コマ", systemImage: "film", tint: .purple)
@@ -116,7 +138,16 @@ struct ThemeDetailView: View {
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 HStack(spacing: 8) {
-                    if isActive {
+                    if hasPendingChanges {
+                        Button {
+                            Task { await model.apply(entry) }
+                        } label: {
+                            Label("変更を適用", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    }
+                    if isActive || hasPendingChanges {
                         Button {
                             Task { await model.restore() }
                         } label: {
@@ -138,6 +169,9 @@ struct ThemeDetailView: View {
                     }
                     Spacer()
                     Menu {
+                        if maxFrames ?? 1 > 1 {
+                            Button("アニメの速さを一括で変える…") { editsSpeed = true }
+                        }
                         Button("Finder で表示") { model.reveal(entry.directory) }
                         Divider()
                         Button("ゴミ箱に入れる…", role: .destructive) { confirmsDelete = true }
@@ -207,7 +241,7 @@ private struct CursorTile: View {
         .onHover { isHovered = $0 }
         .motionAnimation(Motion.quick, value: isHovered)
         .help(
-            "\(key)\n\(Int(rep.size.width))×\(Int(rep.size.height)) pt · ホットスポット (\(fmt(rep.hotspot.x)), \(fmt(rep.hotspot.y)))"
+            "クリックで編集\n\(key)\n\(Int(rep.size.width))×\(Int(rep.size.height)) pt · ホットスポット (\(fmt(rep.hotspot.x)), \(fmt(rep.hotspot.y)))"
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(CursorRoles.title(for: key))、\(detail)")
@@ -231,7 +265,7 @@ struct EmptyLibraryView: View {
                 .foregroundStyle(.secondary)
             Text("カーソルテーマを追加しましょう")
                 .font(.title3.weight(.semibold))
-            Text("Windows のカーソルテーマ(.ani / .cur)のフォルダをここへドラッグするか、下のボタンから選んでください。取り込んだテーマは適用する前にプレビューできます。")
+            Text("Windows のカーソルテーマ(.ani / .cur)のフォルダか .cape ファイルをここへドラッグするか、下のボタンから選んでください。取り込んだテーマは適用する前にプレビューできます。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -240,7 +274,7 @@ struct EmptyLibraryView: View {
             Button {
                 chooseImportFolder(model: model)
             } label: {
-                Label("フォルダを選ぶ", systemImage: "folder")
+                Label("フォルダ・ファイルを選ぶ", systemImage: "folder")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)

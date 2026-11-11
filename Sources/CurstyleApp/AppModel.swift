@@ -140,6 +140,7 @@ final class AppModel {
                     "\(failure)。\(rolledBack ? "前の状態へ戻しました。" : "前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。")")
             } else {
                 let count = report.results.filter { $0.outcome == .applied }.count
+                lastAppliedEntryID = entry.id
                 show(.success, "\(entry.theme.name) を適用しました", "\(count) 件の登録を読み戻して一致を確かめました。")
             }
         } catch {
@@ -187,6 +188,37 @@ final class AppModel {
         } catch {
             show(.failure, "追加できませんでした", "\(error)")
         }
+    }
+
+    /// 適用中のテーマを編集しても、カーソルは書き換えずライブラリにだけ保存する(「変更を適用」で反映)。
+    @discardableResult
+    func update(_ entry: ThemeLibrary.Entry, with theme: CursorTheme) -> Bool {
+        do {
+            try library.update(entry, with: theme)
+            reload()
+            show(
+                .success, "\(theme.name) を保存しました",
+                hasPendingChanges(self.entry(id: entry.id) ?? entry) ? "画面のカーソルはまだ前の内容です。「変更を適用」で反映します。" : nil)
+            return true
+        } catch {
+            show(.failure, "保存できませんでした", "\(error)")
+            return false
+        }
+    }
+
+    /// アプリで最後に適用したライブラリのテーマ。編集で中身(指紋)が変わっても「適用中だったテーマ」を辿るため。
+    private static let lastAppliedKey = "lastAppliedEntryID"
+    var lastAppliedEntryID: String? {
+        get { UserDefaults.standard.string(forKey: Self.lastAppliedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.lastAppliedKey) }
+    }
+
+    /// 適用中のテーマを編集して、画面のカーソルとライブラリの中身が食い違っている。
+    /// テーマ名も比べるのは、アプリで適用した後に CLI などで別のテーマを適用した場合を除くため
+    /// (名前を変えてから編集したテーマは、ここで食い違いを見落とす)。
+    func hasPendingChanges(_ entry: ThemeLibrary.Entry) -> Bool {
+        journal.status == .applied && lastAppliedEntryID == entry.id && journal.themeName == entry.theme.name
+            && activeTheme != nil && !isActive(entry)
     }
 
     func rename(_ entry: ThemeLibrary.Entry, to name: String) {

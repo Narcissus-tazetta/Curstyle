@@ -30,7 +30,8 @@ macOS のシステムカーソル(矢印・Iビーム・指差しなど)を、�
 ## アプリ
 
 - サイドバーにテーマの一覧、右にテーマごとのプレビュー(アニメも再生)。ツールバーで背景とホットスポットの表示を切り替えられる。
-- 取り込み: Windows のカーソルテーマ(.ani / .cur)か theme.json のフォルダを、「＋」(⌘O)・ウィンドウへのドロップ・Dock アイコンへのドロップで渡す。取り込む前にプレビューと大きさを確かめられる。
+- 取り込み: Windows のカーソルテーマ(.ani / .cur)のフォルダ・.cape ファイル・theme.json のフォルダを、「＋」(⌘O)・ウィンドウへのドロップ・Dock アイコンへのドロップで渡す。取り込む前にプレビューと大きさを確かめられる。
+- 編集: カーソルのタイルを押すと、ホットスポット・1コマの秒数を変えたり、画像を GIF / PNG に差し替えたりできる。テーマ全体のアニメの速さは「…」メニューから一括で変える。適用中のテーマを編集してもカーソルは書き換えず、「変更を適用」で反映する。
 - 適用・標準に戻すは、テーマの画面・サイドバー下端・メニューバーから。
 - 設定の「テーマが消えたら自動で入れ直す」で常駐ヘルパーを登録する(`curstyle helper install` で入れたものは置き換える)。
 - 診断画面から不具合報告用のレポートを書き出せる。
@@ -46,7 +47,7 @@ curstyle apply --backend overlay <theme-dir>  # 本物を隠して自前で描�
 curstyle restore                          # 保存しておいた標準画像に戻す(overlay 方式なら描画を止める)
 curstyle reset-system                     # 保存画像を使わずに OS の標準へ戻す(最終手段)
 curstyle report [file]                    # 不具合報告用の診断レポートを書き出す(- で標準出力)
-curstyle import <windows-dir> <theme-dir> [--scale N]  # Windows のカーソルフォルダをテーマに変換する(既定 1 px = 1 pt)
+curstyle import <source> <theme-dir> [--scale N]  # .cape か Windows のカーソルフォルダをテーマに変換する(Windows は既定 1 px = 1 pt)
 curstyle make-theme <dir> [--labels]      # テスト画像をテーマとして書き出す(--labels は cursor.N に番号を描く、--overlay-check は役割ごとに単色)
 curstyle helper install                   # ログイン時に自動で再適用するヘルパーを登録する(uninstall / status / resume)
 ```

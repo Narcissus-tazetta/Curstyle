@@ -16,7 +16,9 @@ public enum SystemReset {
     public static func run(store: SnapshotStore) throws -> Report {
         if CursorEnvironment.current().cursorIsCustomized == true {
             throw CursorKitError.busy(
-                "ポインターの色がカスタマイズされているため実行しない(標準色の画像を登録して色設定と食い違う)。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色を変更→戻すと、システムが登録し直す"
+                L10n.text(
+                    "ポインターの色がカスタマイズされているため実行しない(標準色の画像を登録して色設定と食い違う)。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色を変更→戻すと、システムが登録し直す"
+                )
             )
         }
         guard let axfUnregisterAll = CSResolveAXFCursorUnregisterAll() else {

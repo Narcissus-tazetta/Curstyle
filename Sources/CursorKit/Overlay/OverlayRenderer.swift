@@ -53,7 +53,7 @@ public final class OverlayRenderer {
 
     public func start() {
         let err = symbols.setProperty(cid, cid, "SetsCursorInBackground" as CFString, kCFBooleanTrue)
-        if err != 0 { log("SetsCursorInBackground が err=\(err) を返した") }
+        if err != 0 { log(L10n.text("SetsCursorInBackground が err={0} を返した", String(describing: err))) }
         hide()
         cursorScale = symbols.cursorScale(cid)
         location = NSEvent.mouseLocation
@@ -65,7 +65,9 @@ public final class OverlayRenderer {
             MainActor.assumeIsolated { self?.appActivated() }
         }
         log(
-            "overlay 開始: 本物の表示=\(symbols.isCursorVisible) 照合表 \(matcher.count) 件 テーマ \(plan.count) 件 拡大率 \(cursorScale)"
+            L10n.text(
+                "overlay 開始: 本物の表示={0} 照合表 {1} 件 テーマ {2} 件 拡大率 {3}", String(describing: symbols.isCursorVisible),
+                String(describing: matcher.count), String(describing: plan.count), String(describing: cursorScale))
         )
     }
 
@@ -89,7 +91,7 @@ public final class OverlayRenderer {
             RunLoop.current.run(until: Date().addingTimeInterval(0.02))
             visible = symbols.isCursorVisible
         }
-        log("overlay 停止: 本物の表示=\(visible)")
+        log(L10n.text("overlay 停止: 本物の表示={0}", String(describing: visible)))
         return visible
     }
 
@@ -132,7 +134,9 @@ public final class OverlayRenderer {
     public func updateScale() {
         let old = cursorScale
         cursorScale = symbols.cursorScale(cid)
-        if old != cursorScale { log("ポインターの拡大率 \(old) → \(cursorScale)") }
+        if old != cursorScale {
+            log(L10n.text("ポインターの拡大率 {0} → {1}", String(describing: old), String(describing: cursorScale)))
+        }
         lastSeed = -1
         refreshShape()
         move()

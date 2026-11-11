@@ -6,14 +6,14 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: themeSelection) {
-            Section("テーマ") {
+            Section(L10n.text("テーマ")) {
                 ForEach(model.entries) { entry in
                     ThemeRow(entry: entry, isActive: model.isActive(entry))
                         .tag(entry.id)
                         .contextMenu { ThemeActionsMenu(model: model, entry: entry) }
                 }
                 if model.entries.isEmpty {
-                    Text("まだテーマがありません")
+                    Text(L10n.text("まだテーマがありません"))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .selectionDisabled()
@@ -29,9 +29,9 @@ struct SidebarView: View {
                 Button {
                     chooseImportFolder(model: model)
                 } label: {
-                    Label("テーマを取り込む", systemImage: "plus")
+                    Label(L10n.text("テーマを取り込む"), systemImage: "plus")
                 }
-                .iconHelp("テーマを取り込む")
+                .iconHelp(L10n.text("テーマを取り込む"))
             }
         }
     }
@@ -76,8 +76,8 @@ private struct ThemeRow: View {
             if isActive {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
-                    .accessibilityLabel("適用中")
-                    .help("適用中")
+                    .accessibilityLabel(L10n.text("適用中"))
+                    .help(L10n.text("適用中"))
             }
         }
         .padding(.vertical, 2)
@@ -85,7 +85,9 @@ private struct ThemeRow: View {
 
     private var subtitle: String {
         let animated = entry.theme.cursors.values.contains { $0.frameCount > 1 }
-        return "\(entry.theme.cursors.count) 種類\(animated ? " · アニメ" : "")"
+        return L10n.text(
+            "{0} 種類{1}", String(describing: entry.theme.cursors.count),
+            String(describing: animated ? L10n.text(" · アニメ") : ""))
     }
 }
 
@@ -106,7 +108,7 @@ private struct StatusFooter: View {
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(isSettingsSelected ? .primary : .secondary)
                         .frame(width: 18)
-                    Text("設定")
+                    Text(L10n.text("設定"))
                         .font(.body)
                     Spacer(minLength: 4)
                     if model.warningCount > 0 {
@@ -116,7 +118,7 @@ private struct StatusFooter: View {
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
                             .background(Color.orange, in: Capsule())
-                            .accessibilityLabel("警告 \(model.warningCount) 件")
+                            .accessibilityLabel(L10n.text("警告 {0} 件", String(describing: model.warningCount)))
                     }
                 }
                 .padding(.horizontal, 8)
@@ -156,7 +158,7 @@ private struct StatusFooter: View {
                     }
                     .buttonStyle(.borderless)
                     .disabled(model.busyMessage != nil)
-                    .iconHelp("標準のカーソルに戻す")
+                    .iconHelp(L10n.text("標準のカーソルに戻す"))
                 }
             }
             .padding(.horizontal, 14)
@@ -166,12 +168,12 @@ private struct StatusFooter: View {
     }
 
     private var helperText: String {
-        if model.helperState.stoppedReason != nil { return "自動再適用: 停止中" }
+        if model.helperState.stoppedReason != nil { return L10n.text("自動再適用: 停止中") }
         switch model.helperService {
-        case .enabled: return "自動再適用: オン"
-        case .requiresApproval: return "自動再適用: 承認待ち"
+        case .enabled: return L10n.text("自動再適用: オン")
+        case .requiresApproval: return L10n.text("自動再適用: 承認待ち")
         case .disabled, .unavailable:
-            return model.hasLegacyHelper ? "自動再適用: オン(CLI で登録)" : "自動再適用: オフ"
+            return model.hasLegacyHelper ? L10n.text("自動再適用: オン(CLI で登録)") : L10n.text("自動再適用: オフ")
         }
     }
 }
@@ -181,11 +183,11 @@ struct ThemeActionsMenu: View {
     let entry: ThemeLibrary.Entry
 
     var body: some View {
-        Button("適用") { Task { await model.apply(entry) } }
+        Button(L10n.text("適用")) { Task { await model.apply(entry) } }
             .disabled(model.busyMessage != nil || model.isActive(entry))
         Divider()
-        Button("Finder で表示") { model.reveal(entry.directory) }
+        Button(L10n.text("Finder で表示")) { model.reveal(entry.directory) }
         Divider()
-        Button("ゴミ箱に入れる", role: .destructive) { model.remove(entry) }
+        Button(L10n.text("ゴミ箱に入れる"), role: .destructive) { model.remove(entry) }
     }
 }

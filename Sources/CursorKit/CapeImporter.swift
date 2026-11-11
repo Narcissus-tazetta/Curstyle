@@ -17,10 +17,13 @@ public enum CapeImporter {
         do {
             plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: file), format: nil)
         } catch {
-            throw CursorKitError.theme("\(file.lastPathComponent) を plist として読めない: \(error)")
+            throw CursorKitError.theme(
+                L10n.text(
+                    "{0} を plist として読めない: {1}", String(describing: file.lastPathComponent), String(describing: error)))
         }
         guard let root = plist as? [String: Any], let entries = root["Cursors"] as? [String: [String: Any]] else {
-            throw CursorKitError.theme("\(file.lastPathComponent) に Cursors が無い(.cape ではない)")
+            throw CursorKitError.theme(
+                L10n.text("{0} に Cursors が無い(.cape ではない)", String(describing: file.lastPathComponent)))
         }
 
         var cursors: [String: CursorRep] = [:]
@@ -30,7 +33,7 @@ public enum CapeImporter {
         // Arrow と ArrowS の両方があれば、macOS 27.2 で表示に効く S の方を残す。S を先に処理する。
         for id in entries.keys.sorted(by: { ($0.hasSuffix("S") ? 0 : 1, $0) < ($1.hasSuffix("S") ? 0 : 1, $1) }) {
             guard let key = themeKey(for: id) else {
-                skipped.append("\(id)(Curstyle が差し替えない名前)")
+                skipped.append(L10n.text("{0}(Curstyle が差し替えない名前)", String(describing: id)))
                 continue
             }
             guard cursors[key] == nil else { continue }
@@ -40,7 +43,7 @@ public enum CapeImporter {
                 // cursor.7 と 8 のように同じ登録先へ当たる組は、先に来た方だけ残す(resolvedPlan が重複を拒否するため)。
                 let names = try CursorCatalog.targets(for: key)
                 guard names.allSatisfy({ !usedTargets.contains($0) }) else {
-                    skipped.append("\(id)(ほかの識別子と同じ登録先)")
+                    skipped.append(L10n.text("{0}(ほかの識別子と同じ登録先)", String(describing: id)))
                     continue
                 }
                 usedTargets.formUnion(names)
@@ -51,7 +54,10 @@ public enum CapeImporter {
             }
         }
         guard !cursors.isEmpty else {
-            throw CursorKitError.theme("\(file.lastPathComponent) に取り込めるカーソルが無い: \(skipped.joined(separator: ", "))")
+            throw CursorKitError.theme(
+                L10n.text(
+                    "{0} に取り込めるカーソルが無い: {1}", String(describing: file.lastPathComponent),
+                    String(describing: skipped.joined(separator: ", "))))
         }
         let themeName = name ?? (root["CapeName"] as? String) ?? file.deletingPathExtension().lastPathComponent
         return Result(theme: CursorTheme(name: themeName, cursors: cursors), skipped: skipped, adjustments: adjustments)
@@ -73,14 +79,17 @@ public enum CapeImporter {
 
     static func cursorRep(_ entry: [String: Any]) throws -> CursorRep {
         func number(_ key: String) throws -> Double {
-            guard let n = entry[key] as? NSNumber else { throw CursorKitError.invalidCursor("\(key) が無い") }
+            guard let n = entry[key] as? NSNumber else {
+                throw CursorKitError.invalidCursor(L10n.text("{0} が無い", String(describing: key)))
+            }
             return n.doubleValue
         }
         let size = CGSize(width: try number("PointsWide"), height: try number("PointsHigh"))
         let frameCount = Int(try number("FrameCount"))
         let hotspot = CGPoint(x: try number("HotSpotX"), y: try number("HotSpotY"))
         guard size.width >= 1, size.height >= 1, frameCount >= 1 else {
-            throw CursorKitError.invalidCursor("size=\(size) frameCount=\(frameCount) が不正")
+            throw CursorKitError.invalidCursor(
+                L10n.text("size={0} frameCount={1} が不正", String(describing: size), String(describing: frameCount)))
         }
         // 静止画にも FrameDuration=1 が入っている。登録形式では静止画の間隔は 0。
         let frameDuration = frameCount > 1 ? try number("FrameDuration") : 0
@@ -92,7 +101,7 @@ public enum CapeImporter {
                 if let image = CGImageSourceCreateImageAtIndex(source, i, nil) { images.append(normalizedImage(image)) }
             }
         }
-        guard !images.isEmpty else { throw CursorKitError.invalidCursor("画像を読めない") }
+        guard !images.isEmpty else { throw CursorKitError.invalidCursor(L10n.text("画像を読めない")) }
 
         // 整数倍率で高さも合う画像はそのまま使う。1x / 2x が無い(10倍の画像だけ、など)ときは
         // 最大の画像から 1x と 2x を作る。
@@ -107,7 +116,10 @@ public enum CapeImporter {
         if byScale[1] == nil && byScale[2] == nil {
             let largest = images.max { $0.width < $1.width }!
             guard largest.height % frameCount == 0 else {
-                throw CursorKitError.invalidCursor("画像の高さ \(largest.height) が \(frameCount) コマで割り切れない")
+                throw CursorKitError.invalidCursor(
+                    L10n.text(
+                        "画像の高さ {0} が {1} コマで割り切れない", String(describing: largest.height), String(describing: frameCount))
+                )
             }
             for scale in [1, 2] {
                 byScale[scale] = try resampleStrip(
@@ -130,13 +142,13 @@ func resampleStrip(_ strip: CGImage, frameCount: Int, to frameSize: CGSize) thro
         let ctx = CGContext(
             data: nil, width: w, height: h * frameCount, bitsPerComponent: 8, bytesPerRow: w * 4,
             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-    else { throw CursorKitError.io("縮小先の画像を作れない") }
+    else { throw CursorKitError.io(L10n.text("縮小先の画像を作れない")) }
     ctx.interpolationQuality = .high
     for i in 0..<frameCount {
         guard
             let frame = strip.cropping(
                 to: CGRect(x: 0, y: i * sourceHeight, width: strip.width, height: sourceHeight))
-        else { throw CursorKitError.io("コマ \(i) を切り出せない") }
+        else { throw CursorKitError.io(L10n.text("コマ {0} を切り出せない", String(describing: i))) }
         // CGContext は下が原点。先頭コマを上に置く。
         ctx.draw(frame, in: CGRect(x: 0, y: (frameCount - 1 - i) * h, width: w, height: h))
     }

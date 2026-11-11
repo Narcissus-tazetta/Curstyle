@@ -16,7 +16,9 @@ public enum OverlayActivation {
     public static func apply(_ theme: CursorTheme, store: SnapshotStore) throws -> [String] {
         if CursorEnvironment.current().cursorIsCustomized == true {
             throw CursorKitError.busy(
-                "ポインターの色がカスタマイズされているため実行しない(overlay でも、色付きの画像を形として照合できるかは未確認)。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットしてから実行すること"
+                L10n.text(
+                    "ポインターの色がカスタマイズされているため実行しない(overlay でも、色付きの画像を形として照合できるかは未確認)。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットしてから実行すること"
+                )
             )
         }
         _ = try OverlaySymbols()
@@ -27,15 +29,18 @@ public enum OverlayActivation {
             let report = try Recovery(backend: try CGSBackend(), store: store).restore(
                 names: Array(previous.intended.keys))
             guard report.succeeded else {
-                throw CursorKitError.snapshot("CGSBackend のテーマを標準へ戻せない。`curstyle restore` の結果を確認すること")
+                throw CursorKitError.snapshot(L10n.text("CGSBackend のテーマを標準へ戻せない。`curstyle restore` の結果を確認すること"))
             }
-            notes.append("CGSBackend のテーマ \(previous.intended.count) 件を標準へ戻した")
+            notes.append(L10n.text("CGSBackend のテーマ {0} 件を標準へ戻した", String(describing: previous.intended.count)))
         }
         // 照合表の元になる標準画像を取り直す。CGS が使えない OS では、手元のスナップショットか AppKit の画像で照合する。
         do {
             try CursorEngine(backend: try CGSBackend(), store: store).refreshSnapshot()
         } catch {
-            notes.append("スナップショットを取り直せない(\(error))。\(store.hasSnapshot ? "手元のスナップショット" : "AppKit の標準画像だけ")で形を照合する")
+            notes.append(
+                L10n.text(
+                    "スナップショットを取り直せない({0})。{1}で形を照合する", String(describing: error),
+                    String(describing: store.hasSnapshot ? L10n.text("手元のスナップショット") : L10n.text("AppKit の標準画像だけ"))))
         }
         try store.saveActiveTheme(theme)
         try store.saveJournal(
@@ -84,13 +89,13 @@ public final class OverlayController {
 
     public func suspend(_ reason: String) {
         guard suspendedReasons.insert(reason).inserted else { return }
-        log("[overlay] 一時停止: \(reason)")
-        if renderer != nil { stop(reason: "一時停止(\(reason))") }
+        log(L10n.text("[overlay] 一時停止: {0}", String(describing: reason)))
+        if renderer != nil { stop(reason: L10n.text("一時停止({0})", String(describing: reason))) }
     }
 
     public func resume(_ reason: String) {
         guard suspendedReasons.remove(reason) != nil else { return }
-        log("[overlay] 一時停止の解除: \(reason)")
+        log(L10n.text("[overlay] 一時停止の解除: {0}", String(describing: reason)))
         sync(reason: "resume-\(reason)")
     }
 
@@ -100,31 +105,34 @@ public final class OverlayController {
         do {
             journal = try store.loadJournal()
         } catch {
-            log("[overlay \(reason)] ジャーナルを読めない: \(error)")
-            stop(reason: "ジャーナルを読めない")
+            log(L10n.text("[overlay {0}] ジャーナルを読めない: {1}", String(describing: reason), String(describing: error)))
+            stop(reason: L10n.text("ジャーナルを読めない"))
             return
         }
         guard journal.status == .applied, journal.backend == .overlay else {
-            if renderer != nil { stop(reason: "ジャーナルが overlay の適用中でなくなった(\(reason))") }
+            if renderer != nil { stop(reason: L10n.text("ジャーナルが overlay の適用中でなくなった({0})", String(describing: reason))) }
             lastNotified = nil
             return
         }
         guard suspendedReasons.isEmpty else {
-            if renderer != nil { stop(reason: "一時停止中") }
+            if renderer != nil { stop(reason: L10n.text("一時停止中")) }
             return
         }
         if CursorEnvironment.current().cursorIsCustomized == true {
-            if renderer != nil { stop(reason: "ポインター色がカスタマイズされた") }
-            notifyOnce("ポインターの色がカスタマイズされているため overlay を止めた。色をリセットすると自動で再開する")
+            if renderer != nil { stop(reason: L10n.text("ポインター色がカスタマイズされた")) }
+            notifyOnce(L10n.text("ポインターの色がカスタマイズされているため overlay を止めた。色をリセットすると自動で再開する"))
             return
         }
         if renderer != nil, runningJournalAt == journal.updatedAt { return }
-        if renderer != nil { stop(reason: "テーマが変わった") }
+        if renderer != nil { stop(reason: L10n.text("テーマが変わった")) }
 
         var state = (try? store.loadHelperState()) ?? HelperState()
         var status = state.overlay ?? OverlayStatus()
         if let stoppedReason = status.stoppedReason, let stoppedAt = status.stoppedAt, journal.updatedAt <= stoppedAt {
-            log("[overlay \(reason)] 停止中(\(stoppedReason))。apply し直すと再開する")
+            log(
+                L10n.text(
+                    "[overlay {0}] 停止中({1})。apply し直すと再開する", String(describing: reason),
+                    String(describing: stoppedReason)))
             return
         }
         status.stoppedReason = nil
@@ -133,20 +141,27 @@ public final class OverlayController {
             status.launchStarts = status.launchStarts.filter { now.timeIntervalSince($0) < config.crashWindow } + [now]
             if status.launchStarts.count > config.maxLaunchStarts {
                 status.stoppedReason =
-                    "\(Int(config.crashWindow / 60)) 分に \(status.launchStarts.count) 回ヘルパーが起動し直した(overlay が落ち続けている可能性)"
+                    L10n.text(
+                        "{0} 分に {1} 回ヘルパーが起動し直した(overlay が落ち続けている可能性)",
+                        String(describing: Int(config.crashWindow / 60)), String(describing: status.launchStarts.count))
                 status.stoppedAt = now
                 status.running = false
                 state.overlay = status
                 try? store.saveHelperState(state)
-                notifyOnce("overlay を止めた: \(status.stoppedReason!)。`curstyle diagnose` で確認し、`curstyle restore` で標準へ戻せる")
-                log("[overlay \(reason)] 停止: \(status.stoppedReason!)")
+                notifyOnce(
+                    L10n.text(
+                        "overlay を止めた: {0}。`curstyle diagnose` で確認し、`curstyle restore` で標準へ戻せる",
+                        String(describing: status.stoppedReason!)))
+                log(
+                    L10n.text(
+                        "[overlay {0}] 停止: {1}", String(describing: reason), String(describing: status.stoppedReason!)))
                 return
             }
         }
 
         do {
             guard let theme = try store.loadActiveTheme() else {
-                throw CursorKitError.theme("適用中のテーマの写し(active-theme)が無い")
+                throw CursorKitError.theme(L10n.text("適用中のテーマの写し(active-theme)が無い"))
             }
             let plan = Dictionary(uniqueKeysWithValues: try theme.resolvedPlan().map { ($0.name, $0.rep) })
             let symbols = try OverlaySymbols()
@@ -168,17 +183,20 @@ public final class OverlayController {
             state.overlay = status
             try store.saveHelperState(state)
             lastNotified = nil
-            log("[overlay \(reason)] テーマ \(theme.name) で開始(照合表 \(matcher.count) 件)")
+            log(
+                L10n.text(
+                    "[overlay {0}] テーマ {1} で開始(照合表 {2} 件)", String(describing: reason), String(describing: theme.name),
+                    String(describing: matcher.count)))
         } catch {
             renderer?.stop()
             renderer = nil
             status.running = false
-            status.stoppedReason = "開始できない: \(error)"
+            status.stoppedReason = L10n.text("開始できない: {0}", String(describing: error))
             status.stoppedAt = Date()
             state.overlay = status
             try? store.saveHelperState(state)
-            notifyOnce("overlay を開始できない: \(error)")
-            log("[overlay \(reason)] 開始できない: \(error)")
+            notifyOnce(L10n.text("overlay を開始できない: {0}", String(describing: error)))
+            log(L10n.text("[overlay {0}] 開始できない: {1}", String(describing: reason), String(describing: error)))
         }
     }
 
@@ -202,8 +220,8 @@ public final class OverlayController {
         status.stoppedAt = Date()
         state.overlay = status
         try? store.saveHelperState(state)
-        log("[overlay] 停止(\(reason))")
-        if !visible { fatal("overlay を止めても本物のカーソルが表示に戻らない。プロセスを終了して WindowServer に戻させる") }
+        log(L10n.text("[overlay] 停止({0})", String(describing: reason)))
+        if !visible { fatal(L10n.text("overlay を止めても本物のカーソルが表示に戻らない。プロセスを終了して WindowServer に戻させる")) }
     }
 
     /// yield や未知の形は頻繁に起きうるので、まとめて書く。
@@ -228,7 +246,7 @@ public final class OverlayController {
         do {
             try store.saveHelperState(state)
         } catch {
-            log("helper.json を書けない: \(error)")
+            log(L10n.text("helper.json を書けない: {0}", String(describing: error)))
         }
     }
 
@@ -242,7 +260,7 @@ public final class OverlayController {
                 if let rep = try backend.read(name).rep { matcher.add(name: name, rep: rep) }
             }
         } catch {
-            log("[overlay] CGS で標準画像を読めない(\(error))。スナップショットと AppKit で照合する")
+            log(L10n.text("[overlay] CGS で標準画像を読めない({0})。スナップショットと AppKit で照合する", String(describing: error)))
         }
         do {
             if let manifest = try store.loadManifest() {
@@ -251,7 +269,7 @@ public final class OverlayController {
                 }
             }
         } catch {
-            log("[overlay] スナップショットを読めない: \(error)")
+            log(L10n.text("[overlay] スナップショットを読めない: {0}", String(describing: error)))
         }
         matcher.addAppKitFactories()
         return matcher

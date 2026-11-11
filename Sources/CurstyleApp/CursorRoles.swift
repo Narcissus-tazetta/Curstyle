@@ -8,43 +8,53 @@ enum CursorRoles {
         let keys: [String]
     }
 
-    static let groups: [Group] = [
-        Group(
-            id: "basic", title: "基本",
-            keys: [
-                "arrow", "ibeam", "pointingHand", "Help", "BusyButClickable", "NotAllowed", "Cross", "ContextualMenu",
-                "IBeamVertical",
-            ]),
-        Group(
-            id: "drag", title: "ドラッグ",
-            keys: ["OpenHand", "ClosedHand", "Copy", "MakeAlias", "DisappearingItem", "WindowMove"]),
-        Group(
-            id: "resize", title: "サイズ変更",
-            keys: [
-                "ResizeLeftRight", "ResizeLeft", "ResizeRight", "ResizeUpDown", "ResizeUp", "ResizeDown",
-                "WindowResizeEastWest", "WindowResizeEast", "WindowResizeWest", "WindowResizeNorthSouth",
-                "WindowResizeNorth", "WindowResizeSouth", "WindowResizeNorthWestSouthEast", "WindowResizeNorthWest",
-                "WindowResizeSouthEast", "WindowResizeNorthEastSouthWest", "WindowResizeNorthEast",
-                "WindowResizeSouthWest",
-            ]),
-        Group(id: "other", title: "その他", keys: ["ZoomIn", "ZoomOut", "Cell", "ScreenshotWindow"]),
-    ]
+    static var groups: [Group] {
+        [
+            Group(
+                id: "basic", title: L10n.text("基本"),
+                keys: [
+                    "arrow", "ibeam", "pointingHand", "Help", "BusyButClickable", "NotAllowed", "Cross",
+                    "ContextualMenu",
+                    "IBeamVertical",
+                ]),
+            Group(
+                id: "drag", title: L10n.text("ドラッグ"),
+                keys: ["OpenHand", "ClosedHand", "Copy", "MakeAlias", "DisappearingItem", "WindowMove"]),
+            Group(
+                id: "resize", title: L10n.text("サイズ変更"),
+                keys: [
+                    "ResizeLeftRight", "ResizeLeft", "ResizeRight", "ResizeUpDown", "ResizeUp", "ResizeDown",
+                    "WindowResizeEastWest", "WindowResizeEast", "WindowResizeWest", "WindowResizeNorthSouth",
+                    "WindowResizeNorth", "WindowResizeSouth", "WindowResizeNorthWestSouthEast", "WindowResizeNorthWest",
+                    "WindowResizeSouthEast", "WindowResizeNorthEastSouthWest", "WindowResizeNorthEast",
+                    "WindowResizeSouthWest",
+                ]),
+            Group(id: "other", title: L10n.text("その他"), keys: ["ZoomIn", "ZoomOut", "Cell", "ScreenshotWindow"]),
+        ]
+    }
 
-    static let titles: [String: String] = [
-        "arrow": "矢印", "ibeam": "テキスト", "pointinghand": "リンク", "help": "ヘルプ",
-        "busybutclickable": "処理中", "notallowed": "使用不可", "cross": "精密選択", "contextualmenu": "コンテキストメニュー",
-        "ibeamvertical": "縦書きテキスト", "openhand": "つかむ(開)", "closedhand": "つかむ(閉)", "copy": "コピー",
-        "makealias": "エイリアス", "disappearingitem": "削除", "windowmove": "移動",
-        "resizeleftright": "左右", "resizeleft": "左", "resizeright": "右", "resizeupdown": "上下",
-        "resizeup": "上", "resizedown": "下", "windowresizeeastwest": "ウィンドウ 左右",
-        "windowresizeeast": "ウィンドウ 右", "windowresizewest": "ウィンドウ 左",
-        "windowresizenorthsouth": "ウィンドウ 上下", "windowresizenorth": "ウィンドウ 上",
-        "windowresizesouth": "ウィンドウ 下", "windowresizenorthwestsoutheast": "ウィンドウ 斜め ↖↘",
-        "windowresizenorthwest": "ウィンドウ 左上", "windowresizesoutheast": "ウィンドウ 右下",
-        "windowresizenortheastsouthwest": "ウィンドウ 斜め ↗↙", "windowresizenortheast": "ウィンドウ 右上",
-        "windowresizesouthwest": "ウィンドウ 左下", "zoomin": "拡大", "zoomout": "縮小", "cell": "セル",
-        "screenshotwindow": "スクリーンショット",
-    ]
+    static var titles: [String: String] {
+        [
+            "arrow": L10n.text("矢印"), "ibeam": L10n.text("テキスト"), "pointinghand": L10n.text("リンク"),
+            "help": L10n.text("ヘルプ"),
+            "busybutclickable": L10n.text("処理中"), "notallowed": L10n.text("使用不可"), "cross": L10n.text("精密選択"),
+            "contextualmenu": L10n.text("コンテキストメニュー"),
+            "ibeamvertical": L10n.text("縦書きテキスト"), "openhand": L10n.text("つかむ(開)"), "closedhand": L10n.text("つかむ(閉)"),
+            "copy": L10n.text("コピー"),
+            "makealias": L10n.text("エイリアス"), "disappearingitem": L10n.text("削除"), "windowmove": L10n.text("移動"),
+            "resizeleftright": L10n.text("左右"), "resizeleft": L10n.text("左"), "resizeright": L10n.text("右"),
+            "resizeupdown": L10n.text("上下"),
+            "resizeup": L10n.text("上"), "resizedown": L10n.text("下"), "windowresizeeastwest": L10n.text("ウィンドウ 左右"),
+            "windowresizeeast": L10n.text("ウィンドウ 右"), "windowresizewest": L10n.text("ウィンドウ 左"),
+            "windowresizenorthsouth": L10n.text("ウィンドウ 上下"), "windowresizenorth": L10n.text("ウィンドウ 上"),
+            "windowresizesouth": L10n.text("ウィンドウ 下"), "windowresizenorthwestsoutheast": L10n.text("ウィンドウ 斜め ↖↘"),
+            "windowresizenorthwest": L10n.text("ウィンドウ 左上"), "windowresizesoutheast": L10n.text("ウィンドウ 右下"),
+            "windowresizenortheastsouthwest": L10n.text("ウィンドウ 斜め ↗↙"), "windowresizenortheast": L10n.text("ウィンドウ 右上"),
+            "windowresizesouthwest": L10n.text("ウィンドウ 左下"), "zoomin": L10n.text("拡大"), "zoomout": L10n.text("縮小"),
+            "cell": L10n.text("セル"),
+            "screenshotwindow": L10n.text("スクリーンショット"),
+        ]
+    }
 
     /// arrow などの別名や cursor.N も役割名にそろえる(CursorCatalog.targets と同じ解釈)。
     static func canonical(_ key: String) -> String {

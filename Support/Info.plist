@@ -30,7 +30,12 @@
 		</dict>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>ja</string>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ja</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Curstyle</string>
 	<key>CFBundleExecutable</key>

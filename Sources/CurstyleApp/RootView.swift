@@ -75,8 +75,8 @@ func chooseImportFolder(model: AppModel) {
     panel.canChooseFiles = true
     panel.allowedContentTypes = [.folder, UTType(filenameExtension: "cape") ?? .propertyList]
     panel.allowsMultipleSelection = false
-    panel.prompt = "選択"
-    panel.message = "Windows のカーソルテーマ(.ani / .cur)のフォルダ、.cape ファイル、Curstyle のテーマ(theme.json)のフォルダを選んでください"
+    panel.prompt = L10n.text("選択")
+    panel.message = L10n.text("Windows のカーソルテーマ(.ani / .cur)のフォルダ、.cape ファイル、Curstyle のテーマ(theme.json)のフォルダを選んでください")
     guard panel.runModal() == .OK, let url = panel.url else { return }
     model.importSource = url
 }
@@ -105,7 +105,7 @@ private struct BannerView: View {
                 Image(systemName: "xmark").font(.caption.weight(.bold))
             }
             .buttonStyle(.borderless)
-            .iconHelp("閉じる")
+            .iconHelp(L10n.text("閉じる"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -143,8 +143,8 @@ private struct DropTargetOverlay: View {
             VStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.down.on.square")
                     .font(.system(size: 40, weight: .light))
-                Text("ここにドロップして取り込む").font(.title3.weight(.semibold))
-                Text("Windows のカーソルフォルダ、または theme.json のあるフォルダ")
+                Text(L10n.text("ここにドロップして取り込む")).font(.title3.weight(.semibold))
+                Text(L10n.text("Windows のカーソルフォルダ、または theme.json のあるフォルダ"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

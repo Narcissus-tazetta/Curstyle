@@ -55,12 +55,13 @@ public struct Recovery {
     /// 1つ失敗しても残りの復元は続け、結果は名前ごとに返す。
     public func restore(names: [String]? = nil) throws -> RestoreReport {
         guard let manifest = try store.loadManifest() else {
-            throw CursorKitError.snapshot("スナップショットが無い。`curstyle reset-system` で OS の標準へ戻せる(最終手段は再ログイン)")
+            throw CursorKitError.snapshot(L10n.text("スナップショットが無い。`curstyle reset-system` で OS の標準へ戻せる(最終手段は再ログイン)"))
         }
         var results: [NameResult] = []
         for name in (names ?? Array(manifest.entries.keys)).sorted() {
             guard let entry = manifest.entries[name] else {
-                results.append(.init(name: name, outcome: .failed, readbackMatches: false, detail: "スナップショットにこの名前が無い"))
+                results.append(
+                    .init(name: name, outcome: .failed, readbackMatches: false, detail: L10n.text("スナップショットにこの名前が無い")))
                 continue
             }
             do {
@@ -75,7 +76,11 @@ public struct Recovery {
                     results.append(
                         .init(
                             name: name, outcome: .restored, readbackMatches: after.hash == entry.hash,
-                            detail: after.hash == entry.hash ? nil : "読み戻し \(after.hash) ≠ スナップショット \(entry.hash)"))
+                            detail: after.hash == entry.hash
+                                ? nil
+                                : L10n.text(
+                                    "読み戻し {0} ≠ スナップショット {1}", String(describing: after.hash),
+                                    String(describing: entry.hash))))
                 } else if let id = CursorCatalog.coreCursorID(of: name) {
                     // 削除だけだと、そのカーソルをすでに使ったアプリは名前で設定し続けて矢印になる(指差しで実測)。
                     // 削除してから HIServices に標準画像で登録し直させる。スナップショット(未登録)とは一致しなくなる。
@@ -85,14 +90,16 @@ public struct Recovery {
                     results.append(
                         .init(
                             name: name, outcome: .restored, readbackMatches: registered,
-                            detail: registered ? "HIServices の標準画像で登録し直した" : "CoreCursorSet 後も未登録のまま"))
+                            detail: registered
+                                ? L10n.text("HIServices の標準画像で登録し直した") : L10n.text("CoreCursorSet 後も未登録のまま")))
                 } else {
                     try backend.remove(name)
                     let after = try backend.read(name)
                     results.append(
                         .init(
                             name: name, outcome: .removed, readbackMatches: after.hash == entry.hash,
-                            detail: after.hash == entry.hash ? nil : "読み戻し \(after.hash) ≠ スナップショット(未登録)"))
+                            detail: after.hash == entry.hash
+                                ? nil : L10n.text("読み戻し {0} ≠ スナップショット(未登録)", String(describing: after.hash))))
                 }
             } catch {
                 results.append(.init(name: name, outcome: .failed, readbackMatches: false, detail: "\(error)"))
@@ -125,7 +132,9 @@ public final class CursorEngine {
     public func refreshSnapshot() throws {
         if CursorEnvironment.current().cursorIsCustomized == true {
             throw CursorKitError.busy(
-                "ポインターの色がカスタマイズされているため実行しない(テーマは画面に表示されず、色付きの画像を標準として取り込んでしまう)。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットしてから実行すること"
+                L10n.text(
+                    "ポインターの色がカスタマイズされているため実行しない(テーマは画面に表示されず、色付きの画像を標準として取り込んでしまう)。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットしてから実行すること"
+                )
             )
         }
         let journal = try store.loadJournal()
@@ -138,7 +147,9 @@ public final class CursorEngine {
             if let intended = journal.intended[name], intended == current.hash {
                 guard let old = existing?.entries[name] else {
                     throw CursorKitError.snapshot(
-                        "\(name) はテーマ適用中なのにスナップショットに標準画像が無い。`curstyle reset-system` で OS の標準へ戻せる(最終手段は再ログイン)")
+                        L10n.text(
+                            "{0} はテーマ適用中なのにスナップショットに標準画像が無い。`curstyle reset-system` で OS の標準へ戻せる(最終手段は再ログイン)",
+                            String(describing: name)))
                 }
                 kept[name] = old
                 continue
@@ -233,8 +244,9 @@ public final class CursorEngine {
                     results.append(
                         .init(
                             name: item.name, outcome: .failed, readbackMatches: false,
-                            detail: "読み戻し \(readback.hash) ≠ 登録 \(expected)"))
-                    return try rollback("\(item.name) の読み戻しが登録内容と一致しない")
+                            detail: L10n.text(
+                                "読み戻し {0} ≠ 登録 {1}", String(describing: readback.hash), String(describing: expected))))
+                    return try rollback(L10n.text("{0} の読み戻しが登録内容と一致しない", String(describing: item.name)))
                 }
                 results.append(.init(name: item.name, outcome: .applied, readbackMatches: true))
             } catch {

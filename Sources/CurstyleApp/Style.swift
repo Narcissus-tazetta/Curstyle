@@ -1,3 +1,4 @@
+import CursorKit
 import SwiftUI
 
 enum Motion {
@@ -102,9 +103,9 @@ enum PreviewBackdrop: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .light: "明るい"
-        case .dark: "暗い"
-        case .checker: "市松"
+        case .light: L10n.text("明るい")
+        case .dark: L10n.text("暗い")
+        case .checker: L10n.text("市松")
         }
     }
 

@@ -47,7 +47,8 @@ struct CursorEditorSheet: View {
             HStack(spacing: 12) {
                 IconTile(systemImage: "slider.horizontal.3", tint: .indigo, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(CursorRoles.title(for: key)) を編集").font(.title3.weight(.semibold))
+                    Text(L10n.text("{0} を編集", String(describing: CursorRoles.title(for: key)))).font(
+                        .title3.weight(.semibold))
                     Text("\(entry.theme.name) · \(key)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -57,18 +58,18 @@ struct CursorEditorSheet: View {
             HStack(alignment: .top, spacing: 16) {
                 canvas
                 Form {
-                    Section("ホットスポット(クリック位置)") {
+                    Section(L10n.text("ホットスポット(クリック位置)")) {
                         coordinateField("X", value: hotspotBinding(\.x), upper: rep.size.width)
                         coordinateField("Y", value: hotspotBinding(\.y), upper: rep.size.height)
-                        Text("左のプレビューをクリック・ドラッグしても動かせます。")
+                        Text(L10n.text("左のプレビューをクリック・ドラッグしても動かせます。"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     if rep.frameCount > 1 {
-                        Section("アニメ") {
+                        Section(L10n.text("アニメ")) {
                             HStack {
                                 TextField(
-                                    "1コマの秒数",
+                                    L10n.text("1コマの秒数"),
                                     value: Binding(
                                         get: { rep.frameDuration },
                                         set: { rep = rep.withFrameDuration($0) }),
@@ -86,16 +87,16 @@ struct CursorEditorSheet: View {
                             }
                             Text(
                                 String(
-                                    format: "%d コマ · 1周 %.2f 秒 · %.1f fps", rep.frameCount,
+                                    format: L10n.text("%d コマ · 1周 %.2f 秒 · %.1f fps"), rep.frameCount,
                                     rep.frameDuration * Double(rep.frameCount), 1 / max(rep.frameDuration, 0.001))
                             )
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                         }
                     }
-                    Section("画像") {
+                    Section(L10n.text("画像")) {
                         HStack {
-                            Button("GIF / PNG から差し替え…", action: chooseImage)
+                            Button(L10n.text("GIF / PNG から差し替え…"), action: chooseImage)
                             if imageSource != nil {
                                 Text(imageSource!.lastPathComponent)
                                     .font(.caption)
@@ -106,19 +107,19 @@ struct CursorEditorSheet: View {
                         }
                         if imageSource != nil {
                             HStack {
-                                TextField("大きさ (pt)", value: $pointSize, format: .number)
+                                TextField(L10n.text("大きさ (pt)"), value: $pointSize, format: .number)
                                     .frame(maxWidth: 180)
                                 Stepper("", value: $pointSize, in: 8...128, step: 2).labelsHidden()
                             }
                             .onChange(of: pointSize) { loadImage() }
                             if !(8...128).contains(pointSize) {
-                                Text("大きさは 8〜128 pt で指定してください")
+                                Text(L10n.text("大きさは 8〜128 pt で指定してください"))
                                     .font(.caption)
                                     .foregroundStyle(.orange)
                             }
                         }
                         Text(
-                            "\(Int(rep.size.width))×\(Int(rep.size.height)) pt\(rep.frameCount > 1 ? " · \(rep.frameCount) コマ" : "")"
+                            "\(Int(rep.size.width))×\(Int(rep.size.height)) pt\(rep.frameCount > 1 ? L10n.text(" · {0} コマ", String(describing: rep.frameCount)) : "")"
                         )
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
@@ -138,7 +139,7 @@ struct CursorEditorSheet: View {
                     if !siblings.isEmpty {
                         Section {
                             Toggle(isOn: $appliesToSiblings) {
-                                Text("同じ画像を使う \(siblings.count) 件にも反映")
+                                Text(L10n.text("同じ画像を使う {0} 件にも反映", String(describing: siblings.count)))
                                 Text(siblings.map(CursorRoles.title(for:)).joined(separator: "、"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -158,9 +159,9 @@ struct CursorEditorSheet: View {
                         .lineLimit(2)
                 }
                 Spacer()
-                Button("キャンセル", role: .cancel) { dismiss() }
+                Button(L10n.text("キャンセル"), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("保存") {
+                Button(L10n.text("保存")) {
                     var theme = entry.theme
                     theme.cursors[key] = rep
                     if appliesToSiblings {
@@ -237,7 +238,7 @@ struct CursorEditorSheet: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.gif, .png]
         panel.allowsMultipleSelection = false
-        panel.message = "カーソルにする GIF(アニメ可)か PNG を選んでください"
+        panel.message = L10n.text("カーソルにする GIF(アニメ可)か PNG を選んでください")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         imageSource = url
         loadImage()
@@ -293,8 +294,8 @@ struct AnimationSpeedSheet: View {
             HStack(spacing: 12) {
                 IconTile(systemImage: "speedometer", tint: .purple, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("アニメの速さを一括で変える").font(.title3.weight(.semibold))
-                    Text("\(animatedKeys.count) 件のアニメに同じ倍率をかけます")
+                    Text(L10n.text("アニメの速さを一括で変える")).font(.title3.weight(.semibold))
+                    Text(L10n.text("{0} 件のアニメに同じ倍率をかけます", String(describing: animatedKeys.count)))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -308,7 +309,7 @@ struct AnimationSpeedSheet: View {
                             CursorPreview(rep: rep, zoom: min(2, 56 / max(rep.size.width, rep.size.height)))
                         }
                         .frame(width: 84, height: 72)
-                        Text(String(format: "%.3f 秒", rep.frameDuration))
+                        Text(String(format: L10n.text("%.3f 秒"), rep.frameDuration))
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
@@ -316,13 +317,13 @@ struct AnimationSpeedSheet: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Slider(value: $factor, in: 0.5...2, step: 0.1) {
-                    Text("速さ")
+                    Text(L10n.text("速さ"))
                 } minimumValueLabel: {
                     Text("0.5×")
                 } maximumValueLabel: {
                     Text("2×")
                 }
-                Text(String(format: "%.1f 倍", factor))
+                Text(String(format: L10n.text("%.1f 倍"), factor))
                     .font(.callout.monospacedDigit().weight(.medium))
             }
             HStack {
@@ -333,9 +334,9 @@ struct AnimationSpeedSheet: View {
                         .lineLimit(2)
                 }
                 Spacer()
-                Button("キャンセル", role: .cancel) { dismiss() }
+                Button(L10n.text("キャンセル"), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("保存") {
+                Button(L10n.text("保存")) {
                     if model.update(entry, with: scaled) { dismiss() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -370,7 +371,9 @@ struct CursorSizeSheet: View {
 
     private var sizeError: String? {
         (largestSide * factor).rounded() > Self.maxSide
-            ? "最大のカーソルが \(Int(Self.maxSide)) pt を超えます(\(Int((largestSide * factor).rounded())) pt)" : nil
+            ? L10n.text(
+                "最大のカーソルが {0} pt を超えます({1} pt)", String(describing: Int(Self.maxSide)),
+                String(describing: Int((largestSide * factor).rounded()))) : nil
     }
 
     var body: some View {
@@ -378,8 +381,8 @@ struct CursorSizeSheet: View {
             HStack(spacing: 12) {
                 IconTile(systemImage: "arrow.up.left.and.arrow.down.right", tint: .teal, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("カーソルの大きさを一括で変える").font(.title3.weight(.semibold))
-                    Text("\(entry.theme.cursors.count) 件のカーソルに同じ倍率をかけます")
+                    Text(L10n.text("カーソルの大きさを一括で変える")).font(.title3.weight(.semibold))
+                    Text(L10n.text("{0} 件のカーソルに同じ倍率をかけます", String(describing: entry.theme.cursors.count)))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -401,16 +404,16 @@ struct CursorSizeSheet: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Slider(value: $factor, in: 0.1...5, step: 0.1) {
-                    Text("大きさ")
+                    Text(L10n.text("大きさ"))
                 } minimumValueLabel: {
                     Text("0.1×")
                 } maximumValueLabel: {
                     Text("5×")
                 }
-                Text(String(format: "%.1f 倍", factor))
+                Text(String(format: L10n.text("%.1f 倍"), factor))
                     .font(.callout.monospacedDigit().weight(.medium))
                 if factor > 1 {
-                    Text("元の画像より大きくすると、輪郭がぼやけます。")
+                    Text(L10n.text("元の画像より大きくすると、輪郭がぼやけます。"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -423,9 +426,9 @@ struct CursorSizeSheet: View {
                         .lineLimit(2)
                 }
                 Spacer()
-                Button("キャンセル", role: .cancel) { dismiss() }
+                Button(L10n.text("キャンセル"), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("保存") {
+                Button(L10n.text("保存")) {
                     do {
                         if model.update(entry, with: try entry.theme.scalingSize(by: factor)) { dismiss() }
                     } catch {

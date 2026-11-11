@@ -79,7 +79,7 @@ final class AppModel {
         } catch {
             journal = .clean
             activeTheme = nil
-            show(.failure, "適用状態を読めません", "\(error)")
+            show(.failure, L10n.text("適用状態を読めません"), "\(error)")
         }
         helperState = (try? store.loadHelperState()) ?? HelperState()
         helperService = HelperService.state
@@ -102,9 +102,9 @@ final class AppModel {
 
     var statusSummary: String {
         guard journal.status == .applied, let name = journal.themeName else {
-            return journal.status == .applying ? "適用が途中で止まっています" : "標準のカーソル"
+            return journal.status == .applying ? L10n.text("適用が途中で止まっています") : L10n.text("標準のカーソル")
         }
-        return journal.backend == .overlay ? "\(name)(overlay 方式)" : name
+        return journal.backend == .overlay ? L10n.text("{0}(overlay 方式)", String(describing: name)) : name
     }
 
     var warningCount: Int {
@@ -123,7 +123,7 @@ final class AppModel {
 
     func apply(_ entry: ThemeLibrary.Entry) async {
         guard busyMessage == nil else { return }
-        busyMessage = "\(entry.theme.name) を適用しています…"
+        busyMessage = L10n.text("{0} を適用しています…", String(describing: entry.theme.name))
         defer { busyMessage = nil }
         // 「適用しています」を先に描かせる。登録そのものはメインスレッドで行う(CLI と同じ呼び方にそろえる)。
         await Task.yield()
@@ -135,43 +135,46 @@ final class AppModel {
             if let failure = report.failure {
                 let rolledBack = report.rollback?.succeeded == true
                 show(
-                    .failure, "適用できませんでした",
-                    "\(failure)。\(rolledBack ? "前の状態へ戻しました。" : "前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。")")
+                    .failure, L10n.text("適用できませんでした"),
+                    "\(failure)。\(rolledBack ? L10n.text("前の状態へ戻しました。") : L10n.text("前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。"))"
+                )
             } else {
                 let count = report.results.filter { $0.outcome == .applied }.count
                 lastAppliedEntryID = entry.id
-                show(.success, "\(entry.theme.name) を適用しました", "\(count) 件の登録を読み戻して一致を確かめました。")
+                show(
+                    .success, L10n.text("{0} を適用しました", String(describing: entry.theme.name)),
+                    L10n.text("{0} 件の登録を読み戻して一致を確かめました。", String(describing: count)))
             }
         } catch {
-            show(.failure, "適用できませんでした", "\(error)")
+            show(.failure, L10n.text("適用できませんでした"), "\(error)")
         }
         refreshStatus()
     }
 
     func restore() async {
         guard busyMessage == nil else { return }
-        busyMessage = "標準のカーソルに戻しています…"
+        busyMessage = L10n.text("標準のカーソルに戻しています…")
         defer { busyMessage = nil }
         await Task.yield()
         do {
             if journal.backend == .overlay {
                 try store.withLock { try store.saveJournal(.clean) }
                 OverlayActivation.postChanged()
-                show(.success, "標準のカーソルに戻しました", "overlay 方式の描画を止めるよう、ヘルパーに伝えました。")
+                show(.success, L10n.text("標準のカーソルに戻しました"), L10n.text("overlay 方式の描画を止めるよう、ヘルパーに伝えました。"))
             } else {
                 let report = try store.withLock {
                     try Recovery(backend: try CGSBackend(), store: store).restore()
                 }
                 OverlayActivation.postChanged()
                 if report.succeeded {
-                    show(.success, "標準のカーソルに戻しました", "すべての名前がスナップショットと一致しました。")
+                    show(.success, L10n.text("標準のカーソルに戻しました"), L10n.text("すべての名前がスナップショットと一致しました。"))
                 } else {
                     let failed = report.results.filter { $0.outcome == .failed || !$0.readbackMatches }.map(\.name)
-                    show(.failure, "一部を戻せませんでした", failed.joined(separator: ", "))
+                    show(.failure, L10n.text("一部を戻せませんでした"), failed.joined(separator: ", "))
                 }
             }
         } catch {
-            show(.failure, "標準に戻せませんでした", "\(error)")
+            show(.failure, L10n.text("標準に戻せませんでした"), "\(error)")
         }
         refreshStatus()
     }
@@ -183,9 +186,9 @@ final class AppModel {
             let entry = try library.add(theme)
             reload()
             selection = .theme(entry.id)
-            show(.success, "\(theme.name) を追加しました")
+            show(.success, L10n.text("{0} を追加しました", String(describing: theme.name)))
         } catch {
-            show(.failure, "追加できませんでした", "\(error)")
+            show(.failure, L10n.text("追加できませんでした"), "\(error)")
         }
     }
 
@@ -196,11 +199,12 @@ final class AppModel {
             try library.update(entry, with: theme)
             reload()
             show(
-                .success, "\(theme.name) を保存しました",
-                hasPendingChanges(self.entry(id: entry.id) ?? entry) ? "画面のカーソルはまだ前の内容です。「変更を適用」で反映します。" : nil)
+                .success, L10n.text("{0} を保存しました", String(describing: theme.name)),
+                hasPendingChanges(self.entry(id: entry.id) ?? entry)
+                    ? L10n.text("画面のカーソルはまだ前の内容です。「変更を適用」で反映します。") : nil)
             return true
         } catch {
-            show(.failure, "保存できませんでした", "\(error)")
+            show(.failure, L10n.text("保存できませんでした"), "\(error)")
             return false
         }
     }
@@ -227,7 +231,7 @@ final class AppModel {
             _ = try library.rename(entry, to: trimmed)
             reload()
         } catch {
-            show(.failure, "名前を変えられませんでした", "\(error)")
+            show(.failure, L10n.text("名前を変えられませんでした"), "\(error)")
         }
     }
 
@@ -235,9 +239,11 @@ final class AppModel {
         do {
             try library.remove(entry)
             reload()
-            show(.info, "\(entry.theme.name) をゴミ箱に入れました", isActive(entry) ? "適用中のカーソルはそのまま残ります。" : nil)
+            show(
+                .info, L10n.text("{0} をゴミ箱に入れました", String(describing: entry.theme.name)),
+                isActive(entry) ? L10n.text("適用中のカーソルはそのまま残ります。") : nil)
         } catch {
-            show(.failure, "削除できませんでした", "\(error)")
+            show(.failure, L10n.text("削除できませんでした"), "\(error)")
         }
     }
 
@@ -265,9 +271,9 @@ final class AppModel {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try Diagnostics.fullReport(store: store).write(to: url, atomically: true, encoding: .utf8)
-            show(.success, "診断レポートを書き出しました", url.lastPathComponent)
+            show(.success, L10n.text("診断レポートを書き出しました"), url.lastPathComponent)
         } catch {
-            show(.failure, "書き出せませんでした", "\(error)")
+            show(.failure, L10n.text("書き出せませんでした"), "\(error)")
         }
     }
 
@@ -281,7 +287,7 @@ final class AppModel {
                 try HelperService.disable()
             }
         } catch {
-            show(.failure, enabled ? "ヘルパーを登録できませんでした" : "ヘルパーを止められませんでした", "\(error)")
+            show(.failure, enabled ? L10n.text("ヘルパーを登録できませんでした") : L10n.text("ヘルパーを止められませんでした"), "\(error)")
         }
         refreshStatus()
     }
@@ -289,9 +295,9 @@ final class AppModel {
     func resumeHelper() {
         do {
             try AutoReapply.resume(store: store)
-            show(.success, "自動再適用を再開しました", "次のイベントか、ヘルパーの再起動で確かめます。")
+            show(.success, L10n.text("自動再適用を再開しました"), L10n.text("次のイベントか、ヘルパーの再起動で確かめます。"))
         } catch {
-            show(.failure, "再開できませんでした", "\(error)")
+            show(.failure, L10n.text("再開できませんでした"), "\(error)")
         }
         refreshStatus()
     }

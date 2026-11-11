@@ -140,8 +140,8 @@ public final class AutoReapply {
         do {
             state = try store.loadHelperState()
         } catch {
-            log("[\(label)] helper.json を読めない: \(error)")
-            notifyOnce("自動再適用の状態ファイルを読めないため停止中: \(error)")
+            log(L10n.text("[{0}] helper.json を読めない: {1}", String(describing: label), String(describing: error)))
+            notifyOnce(L10n.text("自動再適用の状態ファイルを読めないため停止中: {0}", String(describing: error)))
             return
         }
         let result = check(label: label, knownCause: knownCause, state: &state)
@@ -151,7 +151,7 @@ public final class AutoReapply {
         do {
             try store.saveHelperState(state)
         } catch {
-            log("helper.json を書けない: \(error)")
+            log(L10n.text("helper.json を書けない: {0}", String(describing: error)))
         }
     }
 
@@ -161,13 +161,15 @@ public final class AutoReapply {
         do {
             journal = try store.loadJournal()
         } catch {
-            notifyOnce("ジャーナルを読めないため再適用しない: \(error)")
-            return "ジャーナルを読めない: \(error)"
+            notifyOnce(L10n.text("ジャーナルを読めないため再適用しない: {0}", String(describing: error)))
+            return L10n.text("ジャーナルを読めない: {0}", String(describing: error))
         }
         // 停止後に利用者が apply / restore したら、その判断を優先して再開する。
         if let stoppedAt = state.stoppedAt {
             guard journal.updatedAt > stoppedAt else {
-                return "停止中(\(state.stoppedReason ?? "-"))。`curstyle helper resume` か apply / restore で再開する"
+                return L10n.text(
+                    "停止中({0})。`curstyle helper resume` か apply / restore で再開する",
+                    String(describing: state.stoppedReason ?? "-"))
             }
             state.stoppedAt = nil
             state.stoppedReason = nil
@@ -177,16 +179,16 @@ public final class AutoReapply {
         switch journal.status {
         case .clean:
             lastNotified = nil
-            return "テーマ未適用(何もしない)"
+            return L10n.text("テーマ未適用(何もしない)")
         case .applying:
-            notifyOnce("前回の適用が途中で止まっている。`curstyle restore` で標準へ戻してから適用し直すこと")
-            return "ジャーナルが applying のまま(何もしない)"
+            notifyOnce(L10n.text("前回の適用が途中で止まっている。`curstyle restore` で標準へ戻してから適用し直すこと"))
+            return L10n.text("ジャーナルが applying のまま(何もしない)")
         case .applied:
             break
         }
         if journal.backend == .overlay {
             lastNotified = nil
-            return "overlay 方式で適用中(入れ直しは不要。描画の状態は diagnose の overlay を参照)"
+            return L10n.text("overlay 方式で適用中(入れ直しは不要。描画の状態は diagnose の overlay を参照)")
         }
 
         let backend: CursorBackend
@@ -197,59 +199,70 @@ public final class AutoReapply {
             let themed = Set(states.filter { $0.state == .themed }.map(\.name))
             lost = journal.intended.keys.filter { !themed.contains($0) }.sorted()
         } catch {
-            notifyOnce("カーソルの状態を読めない: \(error)")
-            return "状態を読めない: \(error)"
+            notifyOnce(L10n.text("カーソルの状態を読めない: {0}", String(describing: error)))
+            return L10n.text("状態を読めない: {0}", String(describing: error))
         }
         guard !lost.isEmpty else {
             lastNotified = nil
-            return "テーマは \(journal.intended.count) 件とも適用中"
+            return L10n.text("テーマは {0} 件とも適用中", String(describing: journal.intended.count))
         }
 
         if CursorEnvironment.current().cursorIsCustomized == true {
-            notifyOnce("ポインターの色がカスタマイズされているため、消えたテーマ(\(lost.count) 件)を入れ直さない。色をリセットすると自動で入れ直す")
-            return "\(lost.count) 件が消えているが、ポインター色カスタマイズ中なので入れ直さない"
+            notifyOnce(
+                L10n.text("ポインターの色がカスタマイズされているため、消えたテーマ({0} 件)を入れ直さない。色をリセットすると自動で入れ直す", String(describing: lost.count))
+            )
+            return L10n.text("{0} 件が消えているが、ポインター色カスタマイズ中なので入れ直さない", String(describing: lost.count))
         }
 
         let now = Date()
         state.reappliedAt = state.reappliedAt.filter { now.timeIntervalSince($0) < config.hardWindow }
         state.unexplainedAt = state.unexplainedAt.filter { now.timeIntervalSince($0) < config.window }
-        let lostSummary = "直近の消失 \(lost.count) 件: \(lost.prefix(5).joined(separator: ", "))…"
+        let lostSummary = L10n.text(
+            "直近の消失 {0} 件: {1}…", String(describing: lost.count),
+            String(describing: lost.prefix(5).joined(separator: ", ")))
         var limitReason: String?
         if !knownCause, state.unexplainedAt.count >= config.maxUnexplained {
             limitReason =
-                "\(Int(config.window / 60)) 分に \(config.maxUnexplained) 回入れ直しても、原因の分からないままテーマが消える(\(lostSummary))"
+                L10n.text(
+                    "{0} 分に {1} 回入れ直しても、原因の分からないままテーマが消える({2})", String(describing: Int(config.window / 60)),
+                    String(describing: config.maxUnexplained), String(describing: lostSummary))
         } else if state.reappliedAt.count >= config.maxReapplies {
-            limitReason = "\(Int(config.hardWindow / 60)) 分に \(config.maxReapplies) 回入れ直した(\(lostSummary))"
+            limitReason = L10n.text(
+                "{0} 分に {1} 回入れ直した({2})", String(describing: Int(config.hardWindow / 60)),
+                String(describing: config.maxReapplies), String(describing: lostSummary))
         }
         if let reason = limitReason {
             state.stoppedAt = Date()
             state.stoppedReason = reason
-            notifyOnce("自動再適用を停止した: \(reason)。`curstyle diagnose` で確認すること")
-            return "停止: \(reason)"
+            notifyOnce(L10n.text("自動再適用を停止した: {0}。`curstyle diagnose` で確認すること", String(describing: reason)))
+            return L10n.text("停止: {0}", String(describing: reason))
         }
 
         let theme: CursorTheme
         do {
             guard let t = try store.loadActiveTheme() else {
                 state.stoppedAt = Date()
-                state.stoppedReason = "適用中のテーマの写し(active-theme)が無い"
-                notifyOnce("適用中のテーマの写しが無いため自動再適用を停止した。`curstyle apply <テーマ>` で適用し直すこと")
-                return "停止: active-theme が無い"
+                state.stoppedReason = L10n.text("適用中のテーマの写し(active-theme)が無い")
+                notifyOnce(L10n.text("適用中のテーマの写しが無いため自動再適用を停止した。`curstyle apply <テーマ>` で適用し直すこと"))
+                return L10n.text("停止: active-theme が無い")
             }
             theme = t
             // 写しがジャーナルの適用内容と食い違うなら、別のテーマを入れてしまうので止める。
             let mismatched = try theme.resolvedPlan().filter { journal.intended[$0.name] != $0.rep.contentHash }
             guard mismatched.isEmpty else {
                 state.stoppedAt = Date()
-                state.stoppedReason = "active-theme がジャーナルと一致しない(\(mismatched.count) 件)"
-                notifyOnce("適用中のテーマの写しが記録と食い違うため自動再適用を停止した。`curstyle apply <テーマ>` で適用し直すこと")
-                return "停止: active-theme とジャーナルが \(mismatched.count) 件食い違う(例 \(mismatched[0].name))"
+                state.stoppedReason = L10n.text(
+                    "active-theme がジャーナルと一致しない({0} 件)", String(describing: mismatched.count))
+                notifyOnce(L10n.text("適用中のテーマの写しが記録と食い違うため自動再適用を停止した。`curstyle apply <テーマ>` で適用し直すこと"))
+                return L10n.text(
+                    "停止: active-theme とジャーナルが {0} 件食い違う(例 {1})", String(describing: mismatched.count),
+                    String(describing: mismatched[0].name))
             }
         } catch {
             state.stoppedAt = Date()
-            state.stoppedReason = "active-theme を読めない: \(error)"
-            notifyOnce("適用中のテーマの写しを読めないため自動再適用を停止した: \(error)")
-            return "停止: active-theme を読めない: \(error)"
+            state.stoppedReason = L10n.text("active-theme を読めない: {0}", String(describing: error))
+            notifyOnce(L10n.text("適用中のテーマの写しを読めないため自動再適用を停止した: {0}", String(describing: error)))
+            return L10n.text("停止: active-theme を読めない: {0}", String(describing: error))
         }
 
         let report: ApplyReport
@@ -257,26 +270,37 @@ public final class AutoReapply {
             report = try store.withLock { try CursorEngine(backend: backend, store: store).apply(theme) }
         } catch CursorKitError.busy(let message) {
             trigger("busy-retry", after: config.busyRetryDelay)
-            return "\(lost.count) 件が消えているが、実行できない(\(message))。\(Int(config.busyRetryDelay)) 秒後に再試行"
+            return L10n.text(
+                "{0} 件が消えているが、実行できない({1})。{2} 秒後に再試行", String(describing: lost.count), String(describing: message),
+                String(describing: Int(config.busyRetryDelay)))
         } catch {
             state.reappliedAt.append(now)
             if !knownCause { state.unexplainedAt.append(now) }
-            notifyOnce("テーマの自動再適用に失敗した: \(error)")
-            return "再適用でエラー: \(error)"
+            notifyOnce(L10n.text("テーマの自動再適用に失敗した: {0}", String(describing: error)))
+            return L10n.text("再適用でエラー: {0}", String(describing: error))
         }
         state.reappliedAt.append(now)
         if !knownCause { state.unexplainedAt.append(now) }
         if let failure = report.failure {
             let rolledBack = report.rollback?.succeeded == true
             state.stoppedAt = Date()
-            state.stoppedReason = "再適用が失敗: \(failure)"
-            notifyOnce("テーマの自動再適用に失敗し、\(rolledBack ? "標準へ戻した" : "標準へ戻すのにも失敗した。`curstyle restore` を実行すること")")
-            return "停止: 再適用が失敗(\(failure))、ロールバック \(rolledBack ? "成功" : "失敗")"
+            state.stoppedReason = L10n.text("再適用が失敗: {0}", String(describing: failure))
+            notifyOnce(
+                L10n.text(
+                    "テーマの自動再適用に失敗し、{0}",
+                    String(
+                        describing: rolledBack
+                            ? L10n.text("標準へ戻した") : L10n.text("標準へ戻すのにも失敗した。`curstyle restore` を実行すること"))))
+            return L10n.text(
+                "停止: 再適用が失敗({0})、ロールバック {1}", String(describing: failure),
+                String(describing: rolledBack ? L10n.text("成功") : L10n.text("失敗")))
         }
         lastNotified = nil
         for delay in config.verifyDelays { trigger("verify+\(Int(delay))s", after: delay) }
         return
-            "\(lost.count) 件が消えていたので入れ直した(\(lost.prefix(5).joined(separator: ", "))…)。適用 \(report.results.count) 件、読み戻し一致"
+            L10n.text(
+                "{0} 件が消えていたので入れ直した({1}…)。適用 {2} 件、読み戻し一致", String(describing: lost.count),
+                String(describing: lost.prefix(5).joined(separator: ", ")), String(describing: report.results.count))
     }
 
     /// 利用者の明示的な再開。回数の記録も消す。

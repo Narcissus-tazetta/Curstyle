@@ -13,6 +13,7 @@ mkdir -p "$BUILD/Contents/MacOS" "$BUILD/Contents/Library/LaunchAgents" "$BUILD/
 cp .build/release/CurstyleApp "$BUILD/Contents/MacOS/CurstyleApp"
 # ヘルパーの実体。ターミナルから `Curstyle.app/Contents/MacOS/curstyle restore` のようにも使える。
 cp .build/release/curstyle "$BUILD/Contents/MacOS/curstyle"
+cp -R .build/release/Curstyle_CursorKit.bundle "$BUILD/Contents/Resources/"
 cp Support/Info.plist "$BUILD/Contents/Info.plist"
 cp Support/io.github.narcissus-tazetta.curstyle.helper.plist "$BUILD/Contents/Library/LaunchAgents/"
 printf 'APPL????' > "$BUILD/Contents/PkgInfo"

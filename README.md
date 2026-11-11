@@ -1,24 +1,28 @@
 # Curstyle
 
-**macOS のカーソルを、お気に入りのテーマに。**
+**Make your macOS cursor your own.**
 
-矢印、テキスト選択、リンク、ウィンドウのサイズ変更など、システムカーソルをまとめて差し替えるアプリです。Windows のカーソルテーマや Mousecape の `.cape` を取り込み、アニメーションのプレビューから編集・適用まで行えます。
+Replace system cursors for pointing, text selection, links, window resizing, and more. Import Windows cursor themes or Mousecape `.cape` files, preview their animations, and fine-tune them before applying.
+
+[![Curstyle switching between custom arrow, text, and link cursors](docs/assets/demo.gif)](docs/assets/demo.mp4)
+
+[Watch the video](docs/assets/demo.mp4) · Cursor theme: [Bibata Modern Amber](https://github.com/ful1e5/Bibata_Cursor)
 
 > [!WARNING]
-> 開発中のアプリです。macOS の非公開 API（SkyLight / HIServices / AccessibilityFoundation）を利用しているため、OS の更新で動作しなくなる可能性があります。動作確認済みの環境は **macOS 27.2 / Apple Silicon** です。
+> Curstyle is under development and uses private macOS APIs (SkyLight / HIServices / AccessibilityFoundation). An OS update may break compatibility. The tested environment is **macOS 27.2 on Apple Silicon**.
 
-## できること
+## Features
 
-- **テーマを取り込む** — Windows の `.cur` / `.ani`、Mousecape の `.cape`、Curstyle の `theme.json` 形式に対応。
-- **適用前に確かめる** — カーソルの役割ごとにアニメーションを再生。背景とホットスポット（クリック位置）も確認できます。
-- **使いやすく調整する** — ホットスポット、大きさ、アニメの速さを編集。カーソルごとに GIF / PNG の画像へ差し替えられます。
-- **すぐに切り替える** — アプリとメニューバーからテーマの適用・標準への復元ができます。
-- **消えたテーマを入れ直す** — 常駐ヘルパーが、再ログインや再起動、ポインター設定の変更によるテーマの消失を検知して再適用します。
-- **状態を調べる** — 設定画面から診断し、不具合報告用のレポートを書き出せます。
+- **Import themes** from Windows `.cur` / `.ani` files, Mousecape `.cape` files, or Curstyle's `theme.json` format.
+- **Preview before applying**, with animated previews, selectable backgrounds, and hotspot markers.
+- **Adjust your cursors** by editing hotspots, sizes, and animation speed, or replacing individual cursors with GIF / PNG images.
+- **Switch and restore** from the app or menu bar.
+- **Reapply automatically** when a restart, login, or pointer setting change resets your theme.
+- **Diagnose problems** and export a report from Settings.
 
-## ビルドして起動する
+## Build and run
 
-必要なものは、Swift 6 ツールチェーンを含む Xcode です。ビルド設定上の最低 OS は macOS 14 ですが、それ以降のすべての OS での動作を保証するものではありません。Intel Mac での動作は未確認です。
+You need Xcode with a Swift 6 toolchain. The deployment target is macOS 14, but this does not guarantee compatibility with every subsequent OS release. Intel Macs have not been tested.
 
 ```bash
 git clone https://github.com/Narcissus-tazetta/Curstyle.git
@@ -27,81 +31,83 @@ cd Curstyle
 open "$HOME/Applications/Curstyle.app"
 ```
 
-`make-app.sh` は release ビルドしたアプリと CLI をまとめ、ad-hoc 署名を付けて `~/Applications/Curstyle.app` に配置します。同じ場所にある既存の Curstyle.app は置き換えます。
+The script builds the app and CLI in release mode, applies an ad-hoc signature, and installs the bundle at `~/Applications/Curstyle.app`. It replaces any existing Curstyle app at that location.
 
-## はじめて使う
+## Getting started
 
-1. カーソルテーマを用意し、必要ならアーカイブを展開します。
-2. テーマのフォルダまたは `.cape` ファイルをウィンドウにドラッグします。「＋」（⌘O）や Dock アイコンへのドロップからも取り込めます。
-3. プレビューで役割と大きさ、取り込まれないファイルを確認し、「ライブラリに追加」を押します。
-4. テーマを選び、「このテーマを適用」を押します。
+Curstyle supports English and Japanese. With no saved language preference, it uses Japanese when your primary macOS language is Japanese, and English otherwise. Choose **English** or **日本語** under **Settings → App → Language** to save an override. App content updates immediately; restart Curstyle to update standard macOS menus and dialogs.
 
-元に戻すときは、テーマ画面・サイドバー下端・メニューバーの「標準に戻す」を使います。
+1. Download a cursor theme and extract its archive if needed.
+2. Drag the theme folder or `.cape` file into the app window. You can also use **+** (⌘O) or drop it onto the Dock icon.
+3. Check the cursor roles, size, and any skipped files, then choose **Add to Library**.
+4. Select the theme and choose **Apply This Theme**.
 
-### 対応する形式
+To undo the change, choose **Restore Defaults** in the theme view, at the bottom of the sidebar, or in the menu bar.
 
-| 入力 | 渡すもの | 補足 |
+### Supported formats
+
+| Format | What to import | Notes |
 | --- | --- | --- |
-| Windows カーソル | `.cur` / `.ani` を含むフォルダ | INF の役割情報やファイル名から対応先を判定。同じ役割ではアニメ版を優先します |
-| Mousecape | `.cape` ファイル | カーソル画像・アニメーション・ホットスポットを取り込みます |
-| Curstyle | `theme.json` と画像を含むフォルダ | Curstyle のテーマをそのまま取り込めます |
-| GIF / PNG | カーソルの編集画面で選択 | 個別のカーソル画像の差し替えに使います |
+| Windows cursors | A folder containing `.cur` / `.ani` files | Roles are detected from INF metadata or filenames. Animated files take priority when both versions exist for a role |
+| Mousecape | A `.cape` file | Imports images, animations, and hotspots |
+| Curstyle | A folder containing `theme.json` and its images | Imports an existing Curstyle theme |
+| GIF / PNG | An image selected in the cursor editor | Replaces an individual cursor within a theme |
 
-Windows テーマの大きさは、既定で **1 px = 1 pt** です。32 px の画像は 32 pt になります。小さく使いたい場合は、取り込み画面で「小さめ（2 px = 1 pt）」を選べます。macOS 側に対応先がない役割や、判定できないファイルは取り込まれません。
+Windows themes default to **1 px = 1 pt**: a 32 px image becomes a 32 pt cursor. For a smaller cursor, select **Smaller (2 px = 1 pt)** during import. Files with unrecognized roles or no macOS equivalent are skipped.
 
-24コマを超えるアニメーションは、取り込み時に自動で24コマへ間引きます。1周の再生時間を保ちますが、動きの滑らかさは低下します。変換内容は取り込み画面・CLIに表示されます。GIF画像の差し替えも同じ扱いです。
+Animations with more than 24 frames are automatically reduced to 24 frames during import. The total loop duration is preserved, but motion becomes less smooth. The import preview and CLI report these adjustments. GIF replacements use the same conversion.
 
-### カーソルを編集する
+### Editing cursors
 
-テーマ画面のカーソルをクリックすると編集画面が開きます。ホットスポットはプレビュー上でクリック・ドラッグするか、数値で指定できます。アニメの速さはカーソルごとに変更でき、テーマの「…」メニューから全体の速さや大きさも一括で変えられます。
+Click a cursor tile to open its editor. Set the hotspot (the click location) numerically, or click and drag in the preview. You can adjust animation speed per cursor, or use the theme's **…** menu to change the size or animation speed for the whole theme.
 
-適用中のテーマを編集した場合、保存だけでは画面上のカーソルは変わりません。「変更を適用」で反映します。
+Saving edits to an active theme does not immediately change the system cursor. Choose **Apply Changes** to apply them.
 
-### ログイン後も使う
+### Keeping your theme after login
 
-設定の「テーマが消えたら自動で入れ直す」をオンにすると、常駐ヘルパーを登録します。macOS から承認を求められたら、システム設定の「ログイン項目」で Curstyle のバックグラウンド実行を許可してください。
+In Settings, enable **Automatically reapply lost themes** to register the background helper. If macOS requests approval, allow Curstyle to run in the background under **System Settings → Login Items**.
 
-「ログイン時にメニューバーに表示」は別の設定です。テーマの自動再適用だけなら、こちらをオンにする必要はありません。
+**Show in menu bar at login** is a separate setting. It is not required for automatic reapplication.
 
-## 制約と困ったとき
+## Limitations and troubleshooting
 
-### 適用してもカーソルが変わらない
+### The cursor does not change
 
-「システム設定 → アクセシビリティ → ディスプレイ → ポインタ」で、ポインターの色を標準に戻してください。色をカスタマイズしている間はテーマを適用できず、診断でもその状態を知らせます。
+Reset pointer colors to their defaults under **System Settings → Accessibility → Display → Pointer**. Curstyle refuses to apply themes while custom pointer colors are enabled, and diagnostics explain this state.
 
-また、スクリーンショット（⌘⇧4）の十字など、アプリが独自に登録するカーソルは差し替えられません。
+Cursors registered independently by other apps, such as the screenshot crosshair (⌘⇧4), cannot be replaced.
 
-### 再ログインや設定変更でテーマが消える
+### The theme disappears after login or a settings change
 
-macOS がカーソルをリセットするためです。自動で戻したい場合は、常駐ヘルパーを有効にしてください。
+macOS can reset cursor images. Enable the background helper if you want Curstyle to reapply your theme automatically.
 
-再適用してもすぐに消える状態が繰り返されると、ヘルパーは自動再適用を停止して通知します。設定画面で停止理由を確認し、「再開」できます。
+If the theme repeatedly disappears immediately after reapplication, the helper pauses and sends a notification. Check the reason in Settings and choose **Resume**.
 
-### 標準のカーソルに戻したい
+### Restoring the default cursors
 
-アプリの「標準に戻す」を使います。アプリが開けない場合は、ターミナルからも復元できます。
+Use **Restore Defaults** in the app. If the app does not open, run:
 
 ```bash
 "$HOME/Applications/Curstyle.app/Contents/MacOS/curstyle" restore
 ```
 
-それでも戻らない場合は、保存画像を使わずに OS の標準へ戻すコマンドがあります。ポインターの色は標準にしてから実行してください。
+If that does not work, the following command asks macOS to restore its defaults without using the saved images. Reset pointer colors to their defaults before running it.
 
 ```bash
 "$HOME/Applications/Curstyle.app/Contents/MacOS/curstyle" reset-system
 ```
 
-ログアウトしてログインし直すことでも標準に戻ります。常駐ヘルパーが有効な場合はテーマを再適用するため、先に自動再適用をオフにしてください。
+Logging out and back in also resets the cursors. Disable automatic reapplication first, or the background helper will apply your theme again.
 
-### 診断や保存データを確認したい
+### Diagnostics and saved data
 
-設定の「診断」から状態を確認し、「レポートを書き出す」で診断レポートを保存できます。
+Open **Diagnostics** in Settings to inspect the current state, and choose **Export Report** to save a diagnostic report.
 
-データの保存先は `~/Library/Application Support/Curstyle/` です。`themes/` に取り込んだテーマを保存し、標準カーソルのスナップショットや適用記録、ヘルパーのログもこの保存先で管理します。標準に戻す際に使うため、テーマ適用中にスナップショットを削除しないでください。
+Curstyle stores its data in `~/Library/Application Support/Curstyle/`. Imported themes live in `themes/`; the same data directory also holds default-cursor snapshots, theme application state, and helper logs. Do not delete snapshots while a theme is active: Curstyle uses them to restore the default images.
 
 ## CLI
 
-アプリには同じエンジンを使う CLI を同梱しています。以下は、リポジトリで CLI だけをビルドして使う例です。
+The app includes a CLI using the same engine. To build and use the CLI on its own, run these commands from the repository:
 
 ```bash
 swift build -c release --product curstyle
@@ -112,26 +118,26 @@ swift build -c release --product curstyle
 .build/release/curstyle restore
 ```
 
-アプリ同梱版を使う場合は、`.build/release/curstyle` を `"$HOME/Applications/Curstyle.app/Contents/MacOS/curstyle"` に置き換えてください。CLI は自動では `PATH` に追加されません。
+To use the bundled CLI instead, replace `.build/release/curstyle` with `"$HOME/Applications/Curstyle.app/Contents/MacOS/curstyle"`. The CLI is not automatically added to your `PATH`.
 
-| コマンド | 用途 |
+| Command | Purpose |
 | --- | --- |
-| `diagnose` | 自己診断。問題があれば終了コード 1 |
-| `status` | カーソル名ごとの適用状態を表示 |
-| `import <source> <theme-dir> [--scale N] [--name NAME]` | Windows のカーソルフォルダ・`.cape` を Curstyle 形式に変換 |
-| `apply <theme-dir>` | `theme.json` のテーマを適用 |
-| `restore` | 保存した標準画像に戻す |
-| `reset-system` | 保存画像を使わず、OS の標準に戻す |
-| `report [file]` | 診断レポートを保存。`-` で標準出力 |
-| `helper install / uninstall / status / resume` | CLI から常駐ヘルパーを管理 |
-| `make-theme <dir> [--labels \| --overlay-check]` | 動作確認用のテーマを書き出す |
+| `diagnose` | Run diagnostics; exits with code 1 if a problem is found |
+| `status` | Show the state of each cursor name |
+| `import <source> <theme-dir> [--scale N] [--name NAME]` | Convert a Windows cursor folder or `.cape` file into a Curstyle theme |
+| `apply <theme-dir>` | Apply a `theme.json` theme |
+| `restore` | Restore the saved default images |
+| `reset-system` | Restore OS defaults without using saved images |
+| `report [file]` | Save a diagnostic report; use `-` for standard output |
+| `helper install / uninstall / status / resume` | Manage the background helper |
+| `make-theme <dir> [--labels \| --overlay-check]` | Generate a test theme |
 
-アプリの設定からヘルパーを有効にすると、`helper install` で登録したヘルパーはアプリ同梱版に置き換わります。
+Enabling the helper in the app replaces any helper previously registered with `helper install` with the app's bundled version.
 
 <details>
-<summary>代替の描画方式（OverlayBackend）</summary>
+<summary>Alternative rendering with OverlayBackend</summary>
 
-通常はシステムカーソルの画像を直接差し替える CGSBackend を使います。CGSBackend が使えない OS 向けに、本物のカーソルを隠して自前で描画する OverlayBackend も用意しています。切り替えは手動で、描画には常駐ヘルパーが必要です。
+By default, CGSBackend replaces the system cursor images directly. OverlayBackend is an alternative for OS versions where CGSBackend is unavailable: it hides the original cursor and draws a replacement. Switching is manual, and rendering requires the background helper.
 
 ```bash
 .build/release/curstyle helper install
@@ -139,30 +145,30 @@ swift build -c release --product curstyle
 .build/release/curstyle restore
 ```
 
-OverlayBackend でも、ポインターの色をカスタマイズしている間は適用できません。
+OverlayBackend also refuses to apply a theme while custom pointer colors are enabled.
 
 </details>
 
-## 開発
+## Development
 
-Swift Package Manager で構成しています。
+Curstyle is a Swift Package Manager project.
 
-| パス | 内容 |
+| Path | Contents |
 | --- | --- |
-| `Sources/CurstyleApp` | SwiftUI アプリ |
-| `Sources/CursorKit` | テーマの取り込み・編集・適用・復元・診断・自動再適用 |
+| `Sources/CurstyleApp` | SwiftUI app |
+| `Sources/CursorKit` | Theme import, editing, application, restoration, diagnostics, and automatic reapplication |
 | `Sources/CursorKit/Overlay` | OverlayBackend |
-| `Sources/CCursorBridge` | 非公開 API の C ブリッジ。シンボルは `dlsym` で解決 |
-| `Sources/curstyle` | CLI と常駐ヘルパー |
-| `Sources/curstyle-probe` / `Sources/curstyle-overlay-probe` | 非公開 API・描画方式の測定ツール |
-| `Tests/CursorKitTests` | カーソルの取り込み・アニメーション変換のテスト |
-| `Support` / `make-app.sh` | アプリのバンドル設定と組み立て |
+| `Sources/CCursorBridge` | C bridge to private APIs; symbols are resolved with `dlsym` |
+| `Sources/curstyle` | CLI and background helper |
+| `Sources/curstyle-probe` / `Sources/curstyle-overlay-probe` | Tools for investigating private APIs and rendering behavior |
+| `Tests/CursorKitTests` | Cursor import, animation conversion, and localization tests |
+| `Support` / `make-app.sh` | App bundle configuration and assembly |
 
 ```bash
 swift build
 swift test
 ```
 
-## ライセンス
+## License
 
-Curstyle のソースコードのライセンスは [MIT License](LICENSE) です。外部から取り込むカーソルテーマや画像の利用条件は、それぞれの配布元を確認してください。
+Curstyle's source code is licensed under the [MIT License](LICENSE). Cursor themes and images imported from other sources have their own terms; check their original distribution pages.

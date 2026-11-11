@@ -35,32 +35,42 @@ public enum Diagnostics {
         report.add(.ok, "OS", "macOS \(env.osVersion)")
 
         for s in requiredSymbols where CSImagePathForSymbol(s) == nil {
-            report.add(.error, "シンボル欠落", "\(s) が無い。この OS では CGSBackend でカーソルを変更できない")
+            report.add(
+                .error, L10n.text("シンボル欠落"),
+                L10n.text("{0} が無い。この OS では CGSBackend でカーソルを変更できない", String(describing: s)))
         }
         for s in optionalSymbols where CSImagePathForSymbol(s) == nil {
-            report.add(.warning, "シンボル欠落", "\(s) が無い(診断の一部が使えない)")
+            report.add(.warning, L10n.text("シンボル欠落"), L10n.text("{0} が無い(診断の一部が使えない)", String(describing: s)))
         }
         if CSResolveAXFCursorUnregisterAll() == nil || CSImagePathForSymbol("CoreCursorSet") == nil {
-            report.add(.warning, "reset-system", "AXFCursorUnregisterAll か CoreCursorSet が無い。スナップショットなしでは標準へ戻せない")
+            report.add(
+                .warning, "reset-system", L10n.text("AXFCursorUnregisterAll か CoreCursorSet が無い。スナップショットなしでは標準へ戻せない"))
         }
 
         switch env.cursorIsCustomized {
         case true?:
             report.add(
-                .error, "ポインターの色",
-                "カスタマイズされている(cursorIsCustomized=1)。この状態ではテーマは画面に表示されない。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットすること")
-        case false?: report.add(.ok, "ポインターの色", "標準")
-        case nil: report.add(.warning, "ポインターの色", "cursorIsCustomized を読めない")
+                .error, L10n.text("ポインターの色"),
+                L10n.text(
+                    "カスタマイズされている(cursorIsCustomized=1)。この状態ではテーマは画面に表示されない。システム設定 > アクセシビリティ > ディスプレイ > ポインタ で色をリセットすること"
+                ))
+        case false?: report.add(.ok, L10n.text("ポインターの色"), L10n.text("標準"))
+        case nil: report.add(.warning, L10n.text("ポインターの色"), L10n.text("cursorIsCustomized を読めない"))
         }
         if let size = env.cursorSize, size != 1 {
-            report.add(.ok, "ポインターのサイズ", "\(size)(標準は 1)。テーマ適用後に変えると OS が cursor.N のテーマを消す。変更後の `curstyle apply` は有効")
+            report.add(
+                .ok, L10n.text("ポインターのサイズ"),
+                L10n.text(
+                    "{0}(標準は 1)。テーマ適用後に変えると OS が cursor.N のテーマを消す。変更後の `curstyle apply` は有効", String(describing: size)))
         }
 
         let overlayMissing = OverlaySymbols.missing()
         if overlayMissing.isEmpty {
-            report.add(.ok, "overlay 方式", "使える(`curstyle apply --backend overlay <テーマ>`)")
+            report.add(.ok, L10n.text("overlay 方式"), L10n.text("使える(`curstyle apply --backend overlay <テーマ>`)"))
         } else {
-            report.add(.warning, "overlay 方式", "シンボル \(overlayMissing.joined(separator: ", ")) が無いため使えない")
+            report.add(
+                .warning, L10n.text("overlay 方式"),
+                L10n.text("シンボル {0} が無いため使えない", String(describing: overlayMissing.joined(separator: ", "))))
         }
         addOverlayStatus(&report, store: store)
 
@@ -69,8 +79,8 @@ public enum Diagnostics {
             backend = try CGSBackend()
         } catch {
             report.add(
-                .error, "バックエンド",
-                "\(error)\(overlayMissing.isEmpty ? "。CGSBackend が使えないので、overlay 方式(`curstyle apply --backend overlay <テーマ>`)を使える" : "")"
+                .error, L10n.text("バックエンド"),
+                "\(error)\(overlayMissing.isEmpty ? L10n.text("。CGSBackend が使えないので、overlay 方式(`curstyle apply --backend overlay <テーマ>`)を使える") : "")"
             )
             return report
         }
@@ -83,38 +93,51 @@ public enum Diagnostics {
             let added = table.filter { CursorCatalog.knownSystemCursorTable[$0.key] != $0.value }
             let removed = CursorCatalog.knownSystemCursorTable.filter { table[$0.key] != $0.value }
             report.add(
-                .warning, "識別子の表が変わった",
-                "CGSCursorNameForSystemCursor が macOS 27.2 と異なる。追加/変更: \(added.sorted { $0.key < $1.key }) 消えた: \(removed.sorted { $0.key < $1.key })。表に無い名前は標準のまま残る"
+                .warning, L10n.text("識別子の表が変わった"),
+                L10n.text(
+                    "CGSCursorNameForSystemCursor が macOS 27.2 と異なる。追加/変更: {0} 消えた: {1}。表に無い名前は標準のまま残る",
+                    String(describing: added.sorted { $0.key < $1.key }),
+                    String(describing: removed.sorted { $0.key < $1.key }))
             )
         }
 
         do {
             let journal = try store.loadJournal()
             report.add(
-                .ok, "ジャーナル",
-                "\(journal.status.rawValue) backend=\(journal.backend.rawValue) theme=\(journal.themeName ?? "-") 対象=\(journal.intended.count)"
+                .ok, L10n.text("ジャーナル"),
+                L10n.text(
+                    "{0} backend={1} theme={2} 対象={3}", String(describing: journal.status.rawValue),
+                    String(describing: journal.backend.rawValue), String(describing: journal.themeName ?? "-"),
+                    String(describing: journal.intended.count))
             )
             if journal.status == .applying {
-                report.add(.error, "適用が途中で止まっている", "前回の適用が完了していない。`curstyle restore` で標準へ戻せる")
+                report.add(.error, L10n.text("適用が途中で止まっている"), L10n.text("前回の適用が完了していない。`curstyle restore` で標準へ戻せる"))
             }
             if let manifest = try store.loadManifest() {
-                report.add(.ok, "スナップショット", "\(manifest.entries.count) 件 更新 \(manifest.updatedAt)")
+                report.add(
+                    .ok, L10n.text("スナップショット"),
+                    L10n.text(
+                        "{0} 件 更新 {1}", String(describing: manifest.entries.count),
+                        String(describing: manifest.updatedAt)))
                 let envs = Set(manifest.entries.values.map(\.environment))
                 if envs.contains(where: { $0.cursorIsCustomized == true }) {
-                    report.add(.warning, "スナップショット", "ポインター色カスタマイズ中に取得した標準画像を含む")
+                    report.add(.warning, L10n.text("スナップショット"), L10n.text("ポインター色カスタマイズ中に取得した標準画像を含む"))
                 }
             } else {
                 report.add(
-                    .warning, "スナップショット",
+                    .warning, L10n.text("スナップショット"),
                     journal.intended.isEmpty
-                        ? "まだ無い(初回適用時に取得する)" : "無いのにテーマ適用の記録がある。`curstyle reset-system` で OS の標準へ戻すこと")
+                        ? L10n.text("まだ無い(初回適用時に取得する)")
+                        : L10n.text("無いのにテーマ適用の記録がある。`curstyle reset-system` で OS の標準へ戻すこと"))
             }
             let engine = CursorEngine(backend: backend, store: store)
             let states = try engine.states()
             let counts = Dictionary(grouping: states, by: \.state).mapValues(\.count)
-            report.add(.ok, "名前ごとの状態", counts.map { "\($0.key.rawValue)=\($0.value)" }.sorted().joined(separator: " "))
+            report.add(
+                .ok, L10n.text("名前ごとの状態"),
+                counts.map { "\(L10n.text($0.key.rawValue))=\($0.value)" }.sorted().joined(separator: " "))
             for s in states where s.state == .themed {
-                report.add(.ok, s.name, "\(s.state.rawValue) hash=\(s.hash)")
+                report.add(.ok, s.name, "\(L10n.text(s.state.rawValue)) hash=\(s.hash)")
             }
             // 再ログイン・再起動・ポインターサイズ変更で OS がテーマの画像を消しても、ジャーナルは applied のまま残る。
             if journal.status == .applied {
@@ -122,43 +145,53 @@ public enum Diagnostics {
                 let lost = journal.intended.keys.filter { !themed.contains($0) }
                 if !lost.isEmpty {
                     report.add(
-                        .warning, "テーマが消えている",
-                        "ジャーナルは適用中だが、\(journal.intended.count) 件のうち \(lost.count) 件はテーマの画像が登録されていない(再ログイン・再起動・ポインターサイズ変更で OS が消す)。`curstyle apply <テーマ>` で再適用するか、`curstyle restore` で標準へ戻してジャーナルを clean にできる"
+                        .warning, L10n.text("テーマが消えている"),
+                        L10n.text(
+                            "ジャーナルは適用中だが、{0} 件のうち {1} 件はテーマの画像が登録されていない(再ログイン・再起動・ポインターサイズ変更で OS が消す)。`curstyle apply <テーマ>` で再適用するか、`curstyle restore` で標準へ戻してジャーナルを clean にできる",
+                            String(describing: journal.intended.count), String(describing: lost.count))
                     )
                 }
             }
             let renewed = states.filter { $0.state == .renewedAtLogin }.map(\.name)
             if !renewed.isEmpty {
                 report.add(
-                    .ok, "ログイン時に更新された標準",
-                    "\(renewed.joined(separator: ", ")) はスナップショット取得後のログインで OS が別の標準を登録した。このまま `curstyle restore` するとログイン前の標準で上書きするので、先に `curstyle snapshot` で取り直すこと(apply と自動再適用は取り直してから適用する)"
+                    .ok, L10n.text("ログイン時に更新された標準"),
+                    L10n.text(
+                        "{0} はスナップショット取得後のログインで OS が別の標準を登録した。このまま `curstyle restore` するとログイン前の標準で上書きするので、先に `curstyle snapshot` で取り直すこと(apply と自動再適用は取り直してから適用する)",
+                        String(describing: renewed.joined(separator: ", ")))
                 )
             }
             // 色のカスタマイズ中・リセット直後は、システムが ArrowS / IBeamS / cursor.13 を登録し直すので「不明」になる。
             // カスタマイズ中に restore すると色設定と食い違う画像を登録するので勧めない。
             let unknownHint =
                 env.cursorIsCustomized == true
-                ? "ポインター色のカスタマイズでシステムが登録した画像と見られる(想定どおり)"
-                : "他のカーソルアプリかポインター設定の変更で書き換わった可能性がある。ポインター色を戻した直後なら `curstyle snapshot` で取り直す。それ以外は `curstyle restore` で取得時の標準へ戻せる"
+                ? L10n.text("ポインター色のカスタマイズでシステムが登録した画像と見られる(想定どおり)")
+                : L10n.text(
+                    "他のカーソルアプリかポインター設定の変更で書き換わった可能性がある。ポインター色を戻した直後なら `curstyle snapshot` で取り直す。それ以外は `curstyle restore` で取得時の標準へ戻せる"
+                )
             for s in states where s.state == .unknown {
-                report.add(.warning, s.name, "\(s.state.rawValue) hash=\(s.hash)。\(unknownHint)")
+                report.add(.warning, s.name, "\(L10n.text(s.state.rawValue)) hash=\(s.hash)。\(unknownHint)")
             }
         } catch {
-            report.add(.error, "状態の読み取り", "\(error)")
+            report.add(.error, L10n.text("状態の読み取り"), "\(error)")
         }
         do {
             let helper = try store.loadHelperState()
             if let reason = helper.stoppedReason {
                 report.add(
-                    .warning, "自動再適用ヘルパー",
-                    "停止中: \(reason)。原因を確かめてから `curstyle helper resume`(apply / restore でも再開する)")
+                    .warning, L10n.text("自動再適用ヘルパー"),
+                    L10n.text(
+                        "停止中: {0}。原因を確かめてから `curstyle helper resume`(apply / restore でも再開する)",
+                        String(describing: reason)))
             } else if let last = helper.lastCheckAt {
-                report.add(.ok, "自動再適用ヘルパー", "直近の確認 \(last): \(helper.lastResult ?? "-")")
+                report.add(
+                    .ok, L10n.text("自動再適用ヘルパー"),
+                    L10n.text("直近の確認 {0}: {1}", String(describing: last), String(describing: helper.lastResult ?? "-")))
             }
         } catch {
-            report.add(.warning, "自動再適用ヘルパー", "helper.json を読めない: \(error)")
+            report.add(.warning, L10n.text("自動再適用ヘルパー"), L10n.text("helper.json を読めない: {0}", String(describing: error)))
         }
-        report.add(.ok, "注意", "読み戻しの一致は画面に表示された証拠ではない。表示は目視で確認すること")
+        report.add(.ok, L10n.text("注意"), L10n.text("読み戻しの一致は画面に表示された証拠ではない。表示は目視で確認すること"))
         return report
     }
 }
@@ -172,25 +205,32 @@ extension Diagnostics {
         guard let status, status.running else {
             report.add(
                 .error, "overlay",
-                "overlay 方式で適用中だが、ヘルパーが描画していない\(status?.stoppedReason.map { "(\($0))" } ?? "")。`curstyle helper status` を確認し、未インストールなら `curstyle helper install`。`curstyle restore` で解除できる"
+                L10n.text(
+                    "overlay 方式で適用中だが、ヘルパーが描画していない{0}。`curstyle helper status` を確認し、未インストールなら `curstyle helper install`。`curstyle restore` で解除できる",
+                    String(describing: status?.stoppedReason.map { "(\($0))" } ?? ""))
             )
             return
         }
         report.add(
             .ok, "overlay",
-            "描画中 theme=\(status.themeName ?? "-") 開始 \(status.startedAt.map { "\($0)" } ?? "-") 照合表 \(status.matcherEntries) 件"
+            L10n.text(
+                "描画中 theme={0} 開始 {1} 照合表 {2} 件", String(describing: status.themeName ?? "-"),
+                String(describing: status.startedAt.map { "\($0)" } ?? "-"), String(describing: status.matcherEntries))
         )
         if status.yieldCount > 0 {
             let scenes = status.yieldScenes.sorted { $0.value > $1.value }.map { "\($0.key)=\($0.value)" }
                 .joined(separator: " ")
             report.add(
-                .ok, "overlay: 本物を隠せなかった場面",
-                "\(status.yieldCount) 回(その間は標準カーソルを表示。最前面アプリ別: \(scenes))。Mission Control・Command+Shift+4・Dock の上では想定どおり"
+                .ok, L10n.text("overlay: 本物を隠せなかった場面"),
+                L10n.text(
+                    "{0} 回(その間は標準カーソルを表示。最前面アプリ別: {1})。Mission Control・Command+Shift+4・Dock の上では想定どおり",
+                    String(describing: status.yieldCount), String(describing: scenes))
             )
         }
         if status.unknownShapes > 0 {
             report.add(
-                .ok, "overlay: 照合できなかった形", "\(status.unknownShapes) 種類(標準の見た目のまま描いた。アプリ独自のカーソルやスクリーンショットの十字など)")
+                .ok, L10n.text("overlay: 照合できなかった形"),
+                L10n.text("{0} 種類(標準の見た目のまま描いた。アプリ独自のカーソルやスクリーンショットの十字など)", String(describing: status.unknownShapes)))
         }
     }
 
@@ -200,89 +240,98 @@ extension Diagnostics {
         var out: [String] = []
         func section(_ title: String) { out.append("\n## \(title)") }
 
-        out.append("# curstyle 診断レポート")
-        out.append("生成: \(ISO8601DateFormatter().string(from: Date()))")
+        out.append(L10n.text("# curstyle 診断レポート"))
+        out.append(L10n.text("生成: {0}", String(describing: ISO8601DateFormatter().string(from: Date()))))
         out.append("OS: macOS \(CursorEnvironment.current().osVersion) (\(sysctlString("kern.osversion") ?? "?"))")
-        out.append("機種: \(sysctlString("hw.model") ?? "?") / \(sysctlString("hw.machine") ?? "?")")
+        out.append(
+            L10n.text(
+                "機種: {0} / {1}", String(describing: sysctlString("hw.model") ?? "?"),
+                String(describing: sysctlString("hw.machine") ?? "?")))
 
-        section("自己診断")
+        section(L10n.text("自己診断"))
         for item in run(store: store).items {
-            out.append("[\(item.level.rawValue)] \(item.title): \(item.detail)")
+            out.append("[\(L10n.text(item.level.rawValue))] \(item.title): \(item.detail)")
         }
 
-        section("ポインター設定 (com.apple.universalaccess)")
+        section(L10n.text("ポインター設定 (com.apple.universalaccess)"))
         let domain = "com.apple.universalaccess" as CFString
         let keys =
             (CFPreferencesCopyKeyList(domain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost) as? [String]) ?? []
         let cursorKeys = keys.filter { $0.lowercased().contains("cursor") }.sorted()
-        if cursorKeys.isEmpty { out.append("(cursor を含むキーなし)") }
+        if cursorKeys.isEmpty { out.append(L10n.text("(cursor を含むキーなし)")) }
         for key in cursorKeys {
             let value = CFPreferencesCopyAppValue(key as CFString, domain).map { "\($0)" } ?? "nil"
             out.append("\(key) = \(value.replacingOccurrences(of: "\n", with: " "))")
         }
 
-        section("シンボル")
+        section(L10n.text("シンボル"))
         _ = CSResolveAXFCursorUnregisterAll()
         for symbol in requiredSymbols + optionalSymbols + [
             "CoreCursorSet", "CoreCursorCopyImages", "AXFCursorUnregisterAll",
         ] {
-            out.append("\(symbol): \(CSImagePathForSymbol(symbol).map { String(cString: $0) } ?? "欠落")")
+            out.append("\(symbol): \(CSImagePathForSymbol(symbol).map { String(cString: $0) } ?? L10n.text("欠落"))")
         }
 
         let backend: CGSBackend
         do {
             backend = try CGSBackend()
         } catch {
-            out.append("\nバックエンドを初期化できない: \(error)")
+            out.append(L10n.text("\nバックエンドを初期化できない: {0}", String(describing: error)))
             return redactHome(out.joined(separator: "\n"))
         }
 
         section("CGSCursorNameForSystemCursor")
         let table = backend.systemCursorTable()
-        if table.isEmpty { out.append("(取得できない)") }
+        if table.isEmpty { out.append(L10n.text("(取得できない)")) }
         for (id, name) in table.sorted(by: { $0.key < $1.key }) {
-            let mark = CursorCatalog.knownSystemCursorTable[id] == name ? "" : "  ← macOS 27.2 の表と異なる"
+            let mark = CursorCatalog.knownSystemCursorTable[id] == name ? "" : L10n.text("  ← macOS 27.2 の表と異なる")
             out.append("\(id): \(name)\(mark)")
         }
 
-        section("名前ごとの状態")
+        section(L10n.text("名前ごとの状態"))
         do {
             let states = try CursorEngine(backend: backend, store: store).states()
             for s in states {
-                let summary = try backend.read(s.name).rep?.summary ?? "未登録"
-                out.append("\(s.name)\t\(s.state.rawValue)\t\(s.hash)\t\(summary)")
+                let summary = try backend.read(s.name).rep?.summary ?? L10n.text("未登録")
+                out.append("\(s.name)\t\(L10n.text(s.state.rawValue))\t\(s.hash)\t\(summary)")
             }
         } catch {
-            out.append("読み取れない: \(error)")
+            out.append(L10n.text("読み取れない: {0}", String(describing: error)))
         }
 
-        section("ジャーナル")
+        section(L10n.text("ジャーナル"))
         if FileManager.default.fileExists(atPath: store.journalURL.path) {
             do {
                 out.append(try String(contentsOf: store.journalURL, encoding: .utf8))
             } catch {
-                out.append("読めない: \(error)")
+                out.append(L10n.text("読めない: {0}", String(describing: error)))
             }
         } else {
-            out.append("(無い = clean)")
+            out.append(L10n.text("(無い = clean)"))
         }
 
-        section("スナップショット")
+        section(L10n.text("スナップショット"))
         do {
             if let manifest = try store.loadManifest() {
                 out.append(
-                    "更新: \(ISO8601DateFormatter().string(from: manifest.updatedAt)) 件数: \(manifest.entries.count)")
+                    L10n.text(
+                        "更新: {0} 件数: {1}", String(describing: ISO8601DateFormatter().string(from: manifest.updatedAt)),
+                        String(describing: manifest.entries.count)))
                 let byEnv = Dictionary(grouping: manifest.entries, by: \.value.environment)
                 for (env, entries) in byEnv.sorted(by: { $0.value.count > $1.value.count }) {
                     out.append(
-                        "取得時の環境 os=\(env.osVersion) cursorIsCustomized=\(env.cursorIsCustomized.map { "\($0)" } ?? "nil") size=\(env.cursorSize.map { "\($0)" } ?? "nil"): \(entries.count) 件"
+                        L10n.text(
+                            "取得時の環境 os={0} cursorIsCustomized={1} size={2}: {3} 件", String(describing: env.osVersion),
+                            String(describing: env.cursorIsCustomized.map { "\($0)" } ?? "nil"),
+                            String(describing: env.cursorSize.map { "\($0)" } ?? "nil"),
+                            String(describing: entries.count))
                     )
                 }
             } else {
-                out.append("(無い)")
+                out.append(L10n.text("(無い)"))
             }
         } catch {
-            out.append("読めない: \(error)")
+            out.append(L10n.text("読めない: {0}", String(describing: error)))
         }
         return redactHome(out.joined(separator: "\n")) + "\n"
     }

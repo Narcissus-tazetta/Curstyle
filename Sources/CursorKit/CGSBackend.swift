@@ -64,13 +64,14 @@ public final class CGSBackend: CursorBackend {
             throw CursorKitError.backend(operation: "CGSCopyRegisteredCursorImages", name: name, code: err)
         }
         guard let array = arr?.takeRetainedValue() else {
-            throw CursorKitError.backend(operation: "CGSCopyRegisteredCursorImages(画像配列が NULL)", name: name, code: err)
+            throw CursorKitError.backend(
+                operation: L10n.text("CGSCopyRegisteredCursorImages(画像配列が NULL)"), name: name, code: err)
         }
         var images: [CGImage] = []
         for obj in array as [AnyObject] {
             guard CFGetTypeID(obj) == CGImage.typeID else {
                 throw CursorKitError.backend(
-                    operation: "CGSCopyRegisteredCursorImages(CGImage 以外が入っている)", name: name, code: err)
+                    operation: L10n.text("CGSCopyRegisteredCursorImages(CGImage 以外が入っている)"), name: name, code: err)
             }
             images.append(obj as! CGImage)
         }
@@ -150,12 +151,14 @@ public final class FaultInjectingBackend: CursorBackend {
     public func register(_ name: String, _ rep: CursorRep) throws {
         if case .failRegister(let n) = fault, registers >= n, !injected {
             injected = true
-            throw CursorKitError.injectedFailure("\(registers + 1) 回目の register(\(name))")
+            throw CursorKitError.injectedFailure(
+                L10n.text("{0} 回目の register({1})", String(describing: registers + 1), String(describing: name)))
         }
         try base.register(name, rep)
         registers += 1
         if case .killProcess(let n) = fault, registers >= n {
-            FileHandle.standardError.write(Data("注入: \(registers) 回目の register 後に SIGKILL\n".utf8))
+            FileHandle.standardError.write(
+                Data(L10n.text("注入: {0} 回目の register 後に SIGKILL\n", String(describing: registers)).utf8))
             kill(getpid(), SIGKILL)
         }
     }

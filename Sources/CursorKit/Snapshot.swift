@@ -110,10 +110,13 @@ public final class SnapshotStore {
     public func lock() throws {
         let path = root.appendingPathComponent("lock").path
         let fd = open(path, O_CREAT | O_RDWR, 0o644)
-        guard fd >= 0 else { throw CursorKitError.io("ロックファイルを開けない: \(path) errno=\(errno)") }
+        guard fd >= 0 else {
+            throw CursorKitError.io(
+                L10n.text("ロックファイルを開けない: {0} errno={1}", String(describing: path), String(describing: errno)))
+        }
         guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
             close(fd)
-            throw CursorKitError.busy("別の curstyle が適用・復元中(\(path) がロックされている)")
+            throw CursorKitError.busy(L10n.text("別の curstyle が適用・復元中({0} がロックされている)", String(describing: path)))
         }
         lockFD = fd
     }
@@ -182,7 +185,7 @@ public final class SnapshotStore {
         guard hasSnapshot else { return nil }
         let manifest = try decoder.decode(SnapshotManifest.self, from: Data(contentsOf: manifestURL))
         guard manifest.version == SnapshotManifest.currentVersion else {
-            throw CursorKitError.snapshot("未対応の形式 version=\(manifest.version)")
+            throw CursorKitError.snapshot(L10n.text("未対応の形式 version={0}", String(describing: manifest.version)))
         }
         return manifest
     }
@@ -235,7 +238,10 @@ public final class SnapshotStore {
                 frameCount: r.frameCount, frameDuration: r.frameDuration, images: images)
             guard reloaded.contentHash == entry.hash else {
                 try? fm.removeItem(at: staging)
-                throw CursorKitError.snapshot("\(name) を保存→読み直すとハッシュが変わる(\(entry.hash) → \(reloaded.contentHash))")
+                throw CursorKitError.snapshot(
+                    L10n.text(
+                        "{0} を保存→読み直すとハッシュが変わる({1} → {2})", String(describing: name), String(describing: entry.hash),
+                        String(describing: reloaded.contentHash)))
             }
         }
 

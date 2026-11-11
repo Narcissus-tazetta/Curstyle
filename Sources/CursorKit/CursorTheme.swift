@@ -13,7 +13,7 @@ public struct CursorTheme: Sendable {
 
     /// 検証済みの (登録名, 内容) の並び。1つでも不正なら何も適用しない。
     public func resolvedPlan() throws -> [(name: String, rep: CursorRep)] {
-        guard !cursors.isEmpty else { throw CursorKitError.theme("カーソルが1つも無い") }
+        guard !cursors.isEmpty else { throw CursorKitError.theme(L10n.text("カーソルが1つも無い")) }
         var plan: [String: (key: String, rep: CursorRep)] = [:]
         for (key, rep) in cursors.sorted(by: { $0.key < $1.key }) {
             do {
@@ -23,7 +23,10 @@ public struct CursorTheme: Sendable {
             }
             for target in try CursorCatalog.targets(for: key) {
                 if let other = plan[target] {
-                    throw CursorKitError.theme("\(key) と \(other.key) が同じ \(target) を指している")
+                    throw CursorKitError.theme(
+                        L10n.text(
+                            "{0} と {1} が同じ {2} を指している", String(describing: key), String(describing: other.key),
+                            String(describing: target)))
                 }
                 plan[target] = (key, rep)
             }
@@ -53,12 +56,13 @@ public struct CursorTheme: Sendable {
         do {
             file = try JSONDecoder().decode(File.self, from: Data(contentsOf: jsonURL))
         } catch {
-            throw CursorKitError.theme("\(jsonURL.path) を読めない: \(error)")
+            throw CursorKitError.theme(
+                L10n.text("{0} を読めない: {1}", String(describing: jsonURL.path), String(describing: error)))
         }
         var cursors: [String: CursorRep] = [:]
         for (key, e) in file.cursors {
             guard e.size.count == 2, e.hotspot.count == 2 else {
-                throw CursorKitError.theme("\(key): size と hotspot は [x, y] の2要素")
+                throw CursorKitError.theme(L10n.text("{0}: size と hotspot は [x, y] の2要素", String(describing: key)))
             }
             let images = try e.images.map { try readPNG(at: directory.appendingPathComponent($0)) }
             cursors[key] = CursorRep(

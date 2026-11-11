@@ -23,7 +23,7 @@ extension CursorRep {
         let newSize = CGSize(
             width: max(1, (size.width * factor).rounded()), height: max(1, (size.height * factor).rounded()))
         guard let largest = images.max(by: { $0.width < $1.width }) else {
-            throw CursorKitError.invalidCursor("画像が無い")
+            throw CursorKitError.invalidCursor(L10n.text("画像が無い"))
         }
         let pixelScales = images.map { Double($0.width) / size.width }
         var rep = self
@@ -47,7 +47,7 @@ extension CursorRep {
     /// GIF はすべてのコマを読み、PNG などは先頭の1枚だけを使う。ホットスポットは左上(呼び出し側で決める)。
     public static func fromImageFile(_ url: URL, pointSize: Double) throws -> (rep: CursorRep, adjustment: String?) {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-            throw CursorKitError.io("画像を読めない: \(url.lastPathComponent)")
+            throw CursorKitError.io(L10n.text("画像を読めない: {0}", String(describing: url.lastPathComponent)))
         }
         let isGIF = (CGImageSourceGetType(source) as String?) == "com.compuserve.gif"
         let count = isGIF ? CGImageSourceGetCount(source) : min(CGImageSourceGetCount(source), 1)
@@ -55,14 +55,17 @@ extension CursorRep {
         var delays: [Int] = []  // 1/100 秒単位(GIF の格納単位)
         for i in 0..<count {
             guard let image = CGImageSourceCreateImageAtIndex(source, i, nil) else {
-                throw CursorKitError.io("\(url.lastPathComponent) のコマ \(i) を読めない")
+                throw CursorKitError.io(
+                    L10n.text("{0} のコマ {1} を読めない", String(describing: url.lastPathComponent), String(describing: i)))
             }
             frames.append(image)
             if isGIF { delays.append(gifDelay(source, i)) }
         }
-        guard let first = frames.first else { throw CursorKitError.io("\(url.lastPathComponent) に画像が無い") }
+        guard let first = frames.first else {
+            throw CursorKitError.io(L10n.text("{0} に画像が無い", String(describing: url.lastPathComponent)))
+        }
         guard frames.allSatisfy({ $0.width == first.width && $0.height == first.height }) else {
-            throw CursorKitError.invalidCursor("コマごとに画像の大きさが違う")
+            throw CursorKitError.invalidCursor(L10n.text("コマごとに画像の大きさが違う"))
         }
 
         // 登録形式は全コマ同じ間隔なので、間隔が違えば最大公約数で割ってコマを繰り返す(.ani と同じ)。

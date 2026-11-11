@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Curstyle",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "CursorKit", targets: ["CursorKit"]),
@@ -15,7 +16,8 @@ let package = Package(
         ),
         .target(
             name: "CursorKit",
-            dependencies: ["CCursorBridge"]
+            dependencies: ["CCursorBridge"],
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "curstyle",

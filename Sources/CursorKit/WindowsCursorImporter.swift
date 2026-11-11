@@ -49,7 +49,7 @@ public enum WindowsCursorImporter {
 
     /// pixelsPerPoint: 画像1枚の何ピクセルを1ptとみなすか。Windows の 32px を Retina で 32px のまま見せるなら 2。
     public static func importTheme(directory: URL, name: String, pixelsPerPoint: Int) throws -> Result {
-        guard (1...4).contains(pixelsPerPoint) else { throw CursorKitError.theme("--scale は 1〜4") }
+        guard (1...4).contains(pixelsPerPoint) else { throw CursorKitError.theme(L10n.text("--scale は 1〜4")) }
         let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         var cursors: [String: CursorRep] = [:]
         var skipped: [String] = []
@@ -90,7 +90,7 @@ public enum WindowsCursorImporter {
             }
             for key in keys { cursors[key] = rep }
         }
-        guard !cursors.isEmpty else { throw CursorKitError.theme("\(directory.path) に取り込める .ani / .cur が無い") }
+        guard !cursors.isEmpty else { throw CursorKitError.theme(L10n.text("{0} に取り込める .ani / .cur が無い", String(describing: directory.path))) }
         return Result(theme: CursorTheme(name: name, cursors: cursors), skippedFiles: skipped, adjustments: adjustments)
     }
 
@@ -677,14 +677,14 @@ public enum WindowsCursorImporter {
             frames = [try parseCUR(data)]
             durations = [0]
         }
-        guard let first = frames.first else { throw CursorKitError.invalidCursor("フレームが無い") }
+        guard let first = frames.first else { throw CursorKitError.invalidCursor(L10n.text("フレームが無い")) }
         let width = first.image.width
         let height = first.image.height
         guard frames.allSatisfy({ $0.image.width == width && $0.image.height == height }) else {
-            throw CursorKitError.invalidCursor("フレームごとに画像の大きさが違う")
+            throw CursorKitError.invalidCursor(L10n.text("フレームごとに画像の大きさが違う"))
         }
         guard width % pixelsPerPoint == 0, height % pixelsPerPoint == 0 else {
-            throw CursorKitError.invalidCursor("画像 \(width)x\(height) が --scale \(pixelsPerPoint) で割り切れない")
+            throw CursorKitError.invalidCursor(L10n.text("画像 {0}x{1} が --scale {2} で割り切れない", String(describing: width), String(describing: height), String(describing: pixelsPerPoint)))
         }
 
         // 登録形式は全フレーム同じ間隔なので、間隔が違うなら最小公約数で割ってフレームを繰り返す。
@@ -692,7 +692,7 @@ public enum WindowsCursorImporter {
         var duration = 0.0
         if frames.count > 1 {
             let unit = durations.reduce(0) { gcd($0, $1) }
-            guard unit > 0 else { throw CursorKitError.invalidCursor("フレームの表示時間が 0") }
+            guard unit > 0 else { throw CursorKitError.invalidCursor(L10n.text("フレームの表示時間が 0")) }
             sequence = zip(frames, durations).flatMap { Array(repeating: $0, count: $1 / unit) }
             duration = Double(unit) / 60
         }
@@ -706,7 +706,7 @@ public enum WindowsCursorImporter {
     /// RIFF 'ACON'。anih(ヘッダー)・rate(ステップごとの 1/60 秒)・seq(ステップ→フレーム番号)・LIST fram の icon。
     static func parseANI(_ data: Data) throws -> (frames: [Frame], durations: [Int]) {
         guard data.count >= 12, data[0..<4].elementsEqual("RIFF".utf8), data[8..<12].elementsEqual("ACON".utf8) else {
-            throw CursorKitError.invalidCursor("ANI ではない(RIFF ACON でない)")
+            throw CursorKitError.invalidCursor(L10n.text("ANI ではない(RIFF ACON でない)"))
         }
         var header: (steps: Int, jiffies: Int)?
         var rate: [Int]?
@@ -719,14 +719,14 @@ public enum WindowsCursorImporter {
                 let id = String(decoding: data[pos..<pos + 4], as: UTF8.self)
                 let size = Int(data.le32(pos + 4))
                 let body = pos + 8
-                guard body + size <= data.count else { throw CursorKitError.invalidCursor("チャンク \(id) がファイルの外に出る") }
+                guard body + size <= data.count else { throw CursorKitError.invalidCursor(L10n.text("チャンク {0} がファイルの外に出る", String(describing: id))) }
                 switch id {
                 case "LIST" where size >= 4 && String(decoding: data[body..<body + 4], as: UTF8.self) == "fram":
                     try walk(body + 4, body + size)
                 case "anih":
-                    guard size >= 36 else { throw CursorKitError.invalidCursor("anih が短い") }
+                    guard size >= 36 else { throw CursorKitError.invalidCursor(L10n.text("anih が短い")) }
                     guard data.le32(body + 32) & 1 != 0 else {
-                        throw CursorKitError.invalidCursor("フレームが生の画像データ形式(未対応。icon 形式のみ)")
+                        throw CursorKitError.invalidCursor(L10n.text("フレームが生の画像データ形式(未対応。icon 形式のみ)"))
                     }
                     header = (Int(data.le32(body + 8)), Int(data.le32(body + 28)))
                 case "rate":
@@ -743,24 +743,24 @@ public enum WindowsCursorImporter {
         }
         try walk(12, data.count)
 
-        guard let header else { throw CursorKitError.invalidCursor("anih が無い") }
+        guard let header else { throw CursorKitError.invalidCursor(L10n.text("anih が無い")) }
         let decoded = try icons.map(parseCUR)
         let order = seq ?? Array(0..<header.steps)
         guard order.count == header.steps, order.allSatisfy({ decoded.indices.contains($0) }) else {
-            throw CursorKitError.invalidCursor("ステップ数 \(header.steps) とフレーム数 \(decoded.count) が合わない")
+            throw CursorKitError.invalidCursor(L10n.text("ステップ数 {0} とフレーム数 {1} が合わない", String(describing: header.steps), String(describing: decoded.count)))
         }
         let durations = (0..<header.steps).map { rate?[$0] ?? header.jiffies }
-        guard durations.allSatisfy({ $0 > 0 }) else { throw CursorKitError.invalidCursor("表示時間が 0 のステップがある") }
+        guard durations.allSatisfy({ $0 > 0 }) else { throw CursorKitError.invalidCursor(L10n.text("表示時間が 0 のステップがある")) }
         return (order.map { decoded[$0] }, durations)
     }
 
     /// ICONDIR(type 2 = cursor)。大きい方の画像を取り、hotspot はディレクトリエントリの planes / bitCount 欄から読む。
     static func parseCUR(_ data: Data) throws -> Frame {
         guard data.count >= 22, data.le16(0) == 0, data.le16(2) == 2 else {
-            throw CursorKitError.invalidCursor("CUR ではない(ICONDIR の type が 2 でない)")
+            throw CursorKitError.invalidCursor(L10n.text("CUR ではない(ICONDIR の type が 2 でない)"))
         }
         let count = Int(data.le16(4))
-        guard count >= 1, 6 + count * 16 <= data.count else { throw CursorKitError.invalidCursor("CUR のエントリが壊れている") }
+        guard count >= 1, 6 + count * 16 <= data.count else { throw CursorKitError.invalidCursor(L10n.text("CUR のエントリが壊れている")) }
         // 幅 0 は 256 を表す。
         let best = (0..<count).max { entryWidth(data, $0) < entryWidth(data, $1) }!
         let entry = 6 + best * 16
@@ -769,7 +769,7 @@ public enum WindowsCursorImporter {
         // ImageIO は .cur の単独ファイルを ICO として読めるので、選んだエントリだけの CUR に作り直して渡す。
         let size = Int(data.le32(entry + 8))
         let offset = Int(data.le32(entry + 12))
-        guard offset + size <= data.count else { throw CursorKitError.invalidCursor("CUR の画像データがファイルの外に出る") }
+        guard offset + size <= data.count else { throw CursorKitError.invalidCursor(L10n.text("CUR の画像データがファイルの外に出る")) }
         var single = Data(data[0..<6])
         single.replaceSubrange(4..<6, with: [1, 0])
         var dir = Data(data[entry..<entry + 16])
@@ -779,7 +779,7 @@ public enum WindowsCursorImporter {
 
         guard let source = CGImageSourceCreateWithData(single as CFData, nil),
             let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else { throw CursorKitError.invalidCursor("CUR の画像を ImageIO で読めない") }
+        else { throw CursorKitError.invalidCursor(L10n.text("CUR の画像を ImageIO で読めない")) }
         return Frame(image: normalizedImage(image), hotspot: hotspot)
     }
 
@@ -796,7 +796,7 @@ public enum WindowsCursorImporter {
             let ctx = CGContext(
                 data: nil, width: w, height: h * images.count, bitsPerComponent: 8, bytesPerRow: w * 4,
                 space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { throw CursorKitError.io("フレームを並べる画像を作れない") }
+        else { throw CursorKitError.io(L10n.text("フレームを並べる画像を作れない")) }
         for (i, image) in images.enumerated() {
             ctx.draw(image, in: CGRect(x: 0, y: (images.count - 1 - i) * h, width: w, height: h))
         }

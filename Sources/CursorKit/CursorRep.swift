@@ -65,7 +65,7 @@ public struct CursorRep: Sendable {
                 guard
                     let frame = strip.cropping(
                         to: CGRect(x: 0, y: index * height, width: strip.width, height: height))
-                else { throw CursorKitError.io("コマ \(index) を切り出せない") }
+                else { throw CursorKitError.io(L10n.text("コマ {0} を切り出せない", String(describing: index))) }
                 return frame
             }
             return try WindowsCursorImporter.stack(frames)
@@ -75,40 +75,58 @@ public struct CursorRep: Sendable {
         rep.frameCount = count
         rep.frameDuration = frameDuration * Double(frameCount) / Double(count)
         try rep.validate()
-        return (rep, "\(frameCount) → \(count) コマに間引きました（1周の時間は維持・動きの滑らかさは低下します）")
+        return (
+            rep,
+            L10n.text(
+                "{0} → {1} コマに間引きました（1周の時間は維持・動きの滑らかさは低下します）", String(describing: frameCount), String(describing: count)
+            )
+        )
     }
 
     private func validate(frameLimit: Int) throws {
         func fail(_ reason: String) -> CursorKitError { .invalidCursor(reason) }
         guard (1...frameLimit).contains(frameCount) else {
-            throw fail("frameCount=\(frameCount) は 1〜\(frameLimit) の範囲外")
+            throw fail(
+                L10n.text("frameCount={0} は 1〜{1} の範囲外", String(describing: frameCount), String(describing: frameLimit))
+            )
         }
         guard size.width >= 1, size.height >= 1, size.width <= 256, size.height <= 256 else {
-            throw fail("size=\(size) は 1〜256pt の範囲外")
+            throw fail(L10n.text("size={0} は 1〜256pt の範囲外", String(describing: size)))
         }
         guard (0...size.width).contains(hotspot.x), (0...size.height).contains(hotspot.y) else {
-            throw fail("hotspot=\(hotspot) が size=\(size) の外")
+            throw fail(L10n.text("hotspot={0} が size={1} の外", String(describing: hotspot), String(describing: size)))
         }
         if frameCount > 1 {
             let storedDuration = Float(frameDuration)
             guard storedDuration.isFinite, storedDuration > 0 else {
-                throw fail("frameDuration=\(frameDuration) は Float32 で表せる正の有限な秒数で指定する")
+                throw fail(L10n.text("frameDuration={0} は Float32 で表せる正の有限な秒数で指定する", String(describing: frameDuration)))
             }
         }
-        guard !images.isEmpty, images.count <= 8 else { throw fail("画像の数 \(images.count) は 1〜8 の範囲外") }
+        guard !images.isEmpty, images.count <= 8 else {
+            throw fail(L10n.text("画像の数 {0} は 1〜8 の範囲外", String(describing: images.count)))
+        }
         var scales = Set<Int>()
         for image in images {
             let scale = Double(image.width) / size.width
             guard scale >= 1, scale == scale.rounded() else {
-                throw fail("画像幅 \(image.width) が size.width \(size.width) の整数倍でない")
+                throw fail(
+                    L10n.text(
+                        "画像幅 {0} が size.width {1} の整数倍でない", String(describing: image.width),
+                        String(describing: size.width)))
             }
             let expectedHeight = size.height * scale * Double(frameCount)
             guard Double(image.height) == expectedHeight else {
-                throw fail("画像 \(image.width)x\(image.height) の高さが \(Int(expectedHeight)) でない(\(frameCount) フレーム縦並び)")
+                throw fail(
+                    L10n.text(
+                        "画像 {0}x{1} の高さが {2} でない({3} フレーム縦並び)", String(describing: image.width),
+                        String(describing: image.height), String(describing: Int(expectedHeight)),
+                        String(describing: frameCount)))
             }
-            guard scales.insert(Int(scale)).inserted else { throw fail("倍率 \(Int(scale))x の画像が重複") }
+            guard scales.insert(Int(scale)).inserted else {
+                throw fail(L10n.text("倍率 {0}x の画像が重複", String(describing: Int(scale))))
+            }
         }
-        guard scales.contains(1) || scales.contains(2) else { throw fail("1x か 2x の画像が必要") }
+        guard scales.contains(1) || scales.contains(2) else { throw fail(L10n.text("1x か 2x の画像が必要")) }
     }
 }
 
@@ -125,14 +143,16 @@ public enum CursorKitError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .symbolMissing(let s): "非公開シンボル \(s) がこの OS に無い(未対応)"
-        case .backend(let op, let name, let code): "\(op)(\(name)) が err=\(code) を返した"
-        case .invalidCursor(let r): "不正なカーソル: \(r)"
-        case .unknownCursorKey(let k): "未知のカーソル名: \(k)"
-        case .snapshot(let r): "スナップショット: \(r)"
-        case .theme(let r): "テーマ: \(r)"
+        case .symbolMissing(let s): L10n.text("非公開シンボル {0} がこの OS に無い(未対応)", String(describing: s))
+        case .backend(let op, let name, let code):
+            L10n.text(
+                "{0}({1}) が err={2} を返した", String(describing: op), String(describing: name), String(describing: code))
+        case .invalidCursor(let r): L10n.text("不正なカーソル: {0}", String(describing: r))
+        case .unknownCursorKey(let k): L10n.text("未知のカーソル名: {0}", String(describing: k))
+        case .snapshot(let r): L10n.text("スナップショット: {0}", String(describing: r))
+        case .theme(let r): L10n.text("テーマ: {0}", String(describing: r))
         case .busy(let r): r
-        case .injectedFailure(let r): "注入した失敗: \(r)"
+        case .injectedFailure(let r): L10n.text("注入した失敗: {0}", String(describing: r))
         case .io(let r): r
         }
     }
@@ -166,14 +186,16 @@ func normalizedImage(_ image: CGImage) -> CGImage {
 
 func writePNG(_ image: CGImage, to url: URL) throws {
     guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)
-    else { throw CursorKitError.io("PNG を作れない: \(url.path)") }
+    else { throw CursorKitError.io(L10n.text("PNG を作れない: {0}", String(describing: url.path))) }
     CGImageDestinationAddImage(dest, image, nil)
-    guard CGImageDestinationFinalize(dest) else { throw CursorKitError.io("PNG を書けない: \(url.path)") }
+    guard CGImageDestinationFinalize(dest) else {
+        throw CursorKitError.io(L10n.text("PNG を書けない: {0}", String(describing: url.path)))
+    }
 }
 
 func readPNG(at url: URL) throws -> CGImage {
     guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
         let image = CGImageSourceCreateImageAtIndex(src, 0, nil)
-    else { throw CursorKitError.io("画像を読めない: \(url.path)") }
+    else { throw CursorKitError.io(L10n.text("画像を読めない: {0}", String(describing: url.path))) }
     return image
 }

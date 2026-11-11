@@ -54,21 +54,21 @@ struct ThemeDetailView: View {
         .navigationTitle(entry.theme.name)
         .toolbar {
             ToolbarItemGroup {
-                Picker("背景", selection: $model.backdrop) {
+                Picker(L10n.text("背景"), selection: $model.backdrop) {
                     ForEach(PreviewBackdrop.allCases) { backdrop in
                         // ツールバーの区切りボタンは記号の名前を読み上げるので、表示名を明示する。
                         Image(systemName: backdrop.systemImage)
-                            .accessibilityLabel("背景: \(backdrop.title)")
-                            .help("背景: \(backdrop.title)")
+                            .accessibilityLabel(L10n.text("背景: {0}", String(describing: backdrop.title)))
+                            .help(L10n.text("背景: {0}", String(describing: backdrop.title)))
                             .tag(backdrop)
                     }
                 }
                 .pickerStyle(.segmented)
-                .help("プレビューの背景")
+                .help(L10n.text("プレビューの背景"))
                 Toggle(isOn: $model.showsHotspot.animation(Motion.quick)) {
-                    Label("ホットスポット", systemImage: "scope")
+                    Label(L10n.text("ホットスポット"), systemImage: "scope")
                 }
-                .iconHelp("クリック位置(ホットスポット)を表示")
+                .iconHelp(L10n.text("クリック位置(ホットスポット)を表示"))
             }
         }
         .sheet(item: $editingKey) { editing in
@@ -81,11 +81,12 @@ struct ThemeDetailView: View {
             AnimationSpeedSheet(model: model, entry: entry)
         }
         .confirmationDialog(
-            "「\(entry.theme.name)」をゴミ箱に入れますか?", isPresented: $confirmsDelete, titleVisibility: .visible
+            L10n.text("「{0}」をゴミ箱に入れますか?", String(describing: entry.theme.name)), isPresented: $confirmsDelete,
+            titleVisibility: .visible
         ) {
-            Button("ゴミ箱に入れる", role: .destructive) { model.remove(entry) }
+            Button(L10n.text("ゴミ箱に入れる"), role: .destructive) { model.remove(entry) }
         } message: {
-            Text(isActive ? "適用中のカーソルはそのまま残ります。標準に戻すには「標準に戻す」を使ってください。" : "Finder のゴミ箱から戻せます。")
+            Text(isActive ? L10n.text("適用中のカーソルはそのまま残ります。標準に戻すには「標準に戻す」を使ってください。") : L10n.text("Finder のゴミ箱から戻せます。"))
         }
     }
 
@@ -103,7 +104,7 @@ struct ThemeDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     if isRenaming {
-                        TextField("テーマ名", text: $draftName)
+                        TextField(L10n.text("テーマ名"), text: $draftName)
                             .textFieldStyle(.roundedBorder)
                             .font(.title2.weight(.semibold))
                             .frame(maxWidth: 320)
@@ -122,31 +123,43 @@ struct ThemeDetailView: View {
                             Image(systemName: "pencil")
                         }
                         .buttonStyle(.borderless)
-                        .iconHelp("名前を変更")
+                        .iconHelp(L10n.text("名前を変更"))
                     }
                 }
                 HStack(spacing: 6) {
                     if isActive {
-                        StatusPill(text: "適用中", systemImage: "checkmark.circle.fill")
+                        StatusPill(text: L10n.text("適用中"), systemImage: "checkmark.circle.fill")
                     } else if hasPendingChanges {
-                        StatusPill(text: "適用中のものと内容が違います", systemImage: "exclamationmark.circle.fill", tint: .orange)
+                        StatusPill(
+                            text: L10n.text("適用中のものと内容が違います"), systemImage: "exclamationmark.circle.fill", tint: .orange
+                        )
                     }
                     if let frames = maxFrames, frames > 1 {
-                        StatusPill(text: "アニメ \(frames) コマ", systemImage: "film", tint: .cyan)
+                        StatusPill(
+                            text: L10n.text("アニメ {0} コマ", String(describing: frames)), systemImage: "film", tint: .cyan)
                     }
-                    StatusPill(text: "\(entry.theme.cursors.count) 種類", systemImage: "cursorarrow", tint: .secondary)
+                    StatusPill(
+                        text: L10n.text("{0} 種類", String(describing: entry.theme.cursors.count)),
+                        systemImage: "cursorarrow", tint: .secondary)
                     StatusPill(text: sizeText, systemImage: "arrow.up.left.and.arrow.down.right", tint: .secondary)
                 }
-                Text("追加日 \(entry.addedAt.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    L10n.text(
+                        "追加日 {0}",
+                        String(
+                            describing: entry.addedAt.formatted(
+                                Date.FormatStyle(date: .abbreviated, time: .shortened).locale(
+                                    Locale(identifier: L10n.language)))))
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 HStack(spacing: 8) {
                     if hasPendingChanges {
                         Button {
                             Task { await model.apply(entry) }
                         } label: {
-                            Label("変更を適用", systemImage: "arrow.triangle.2.circlepath")
+                            Label(L10n.text("変更を適用"), systemImage: "arrow.triangle.2.circlepath")
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
@@ -155,14 +168,14 @@ struct ThemeDetailView: View {
                         Button {
                             Task { await model.restore() }
                         } label: {
-                            Label("標準に戻す", systemImage: "arrow.uturn.backward")
+                            Label(L10n.text("標準に戻す"), systemImage: "arrow.uturn.backward")
                         }
                         .controlSize(.large)
                     } else {
                         Button {
                             Task { await model.apply(entry) }
                         } label: {
-                            Label("このテーマを適用", systemImage: "checkmark")
+                            Label(L10n.text("このテーマを適用"), systemImage: "checkmark")
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
@@ -173,21 +186,21 @@ struct ThemeDetailView: View {
                     }
                     Spacer()
                     Menu {
-                        Button("カーソルの大きさを一括で変える…") { editsSize = true }
+                        Button(L10n.text("カーソルの大きさを一括で変える…")) { editsSize = true }
                         if maxFrames ?? 1 > 1 {
-                            Button("アニメの速さを一括で変える…") { editsSpeed = true }
+                            Button(L10n.text("アニメの速さを一括で変える…")) { editsSpeed = true }
                         }
-                        Button("Finder で表示") { model.reveal(entry.directory) }
+                        Button(L10n.text("Finder で表示")) { model.reveal(entry.directory) }
                         Divider()
-                        Button("ゴミ箱に入れる…", role: .destructive) { confirmsDelete = true }
+                        Button(L10n.text("ゴミ箱に入れる…"), role: .destructive) { confirmsDelete = true }
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .accessibilityLabel("その他の操作")
+                            .accessibilityLabel(L10n.text("その他の操作"))
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
-                    .iconHelp("その他の操作")
+                    .iconHelp(L10n.text("その他の操作"))
                 }
                 .disabled(model.busyMessage != nil)
             }
@@ -246,7 +259,10 @@ private struct CursorTile: View {
         .onHover { isHovered = $0 }
         .motionAnimation(Motion.quick, value: isHovered)
         .help(
-            "クリックで編集\n\(key)\n\(Int(rep.size.width))×\(Int(rep.size.height)) pt · ホットスポット (\(fmt(rep.hotspot.x)), \(fmt(rep.hotspot.y)))"
+            L10n.text(
+                "クリックで編集\n{0}\n{1}×{2} pt · ホットスポット ({3}, {4})", String(describing: key),
+                String(describing: Int(rep.size.width)), String(describing: Int(rep.size.height)),
+                String(describing: fmt(rep.hotspot.x)), String(describing: fmt(rep.hotspot.y)))
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(CursorRoles.title(for: key))、\(detail)")
@@ -254,7 +270,9 @@ private struct CursorTile: View {
 
     private var detail: String {
         rep.frameCount > 1
-            ? "\(rep.frameCount) コマ · \(String(format: "%.2f", rep.frameDuration)) 秒" : "静止画"
+            ? L10n.text(
+                "{0} コマ · {1} 秒", String(describing: rep.frameCount),
+                String(describing: String(format: "%.2f", rep.frameDuration))) : L10n.text("静止画")
     }
 
     private func fmt(_ v: CGFloat) -> String { v == v.rounded() ? "\(Int(v))" : String(format: "%.1f", v) }
@@ -268,23 +286,27 @@ struct EmptyLibraryView: View {
             Image(systemName: "cursorarrow.rays")
                 .font(.system(size: 52, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("カーソルテーマを追加しましょう")
+            Text(L10n.text("カーソルテーマを追加しましょう"))
                 .font(.title3.weight(.semibold))
-            Text("Windows のカーソルテーマ(.ani / .cur)のフォルダか .cape ファイルをここへドラッグするか、下のボタンから選んでください。取り込んだテーマは適用する前にプレビューできます。")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                L10n.text(
+                    "Windows のカーソルテーマ(.ani / .cur)のフォルダか .cape ファイルをここへドラッグするか、下のボタンから選んでください。取り込んだテーマは適用する前にプレビューできます。"
+                )
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: 420)
+            .fixedSize(horizontal: false, vertical: true)
             Button {
                 chooseImportFolder(model: model)
             } label: {
-                Label("フォルダ・ファイルを選ぶ", systemImage: "folder")
+                Label(L10n.text("フォルダ・ファイルを選ぶ"), systemImage: "folder")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             if let name = model.activeOutsideLibrary {
-                Text("いま「\(name)」が適用されています(ライブラリの外で適用したテーマ)。")
+                Text(L10n.text("いま「{0}」が適用されています(ライブラリの外で適用したテーマ)。", String(describing: name)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 6)

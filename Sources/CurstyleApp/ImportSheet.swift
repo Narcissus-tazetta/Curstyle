@@ -31,7 +31,7 @@ struct ImportSheet: View {
             HStack(spacing: 12) {
                 IconTile(systemImage: "square.and.arrow.down", tint: .blue, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("テーマを取り込む").font(.title3.weight(.semibold))
+                    Text(L10n.text("テーマを取り込む")).font(.title3.weight(.semibold))
                     Text(source.path(percentEncoded: false))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -41,17 +41,20 @@ struct ImportSheet: View {
             }
 
             Form {
-                TextField("名前", text: $name)
+                TextField(L10n.text("名前"), text: $name)
                 if choosesScale {
-                    Picker("大きさ", selection: $pixelsPerPoint) {
-                        Text("標準(1 px = 1 pt)").tag(1)
-                        Text("小さめ(2 px = 1 pt)").tag(2)
+                    Picker(L10n.text("大きさ"), selection: $pixelsPerPoint) {
+                        Text(L10n.text("標準(1 px = 1 pt)")).tag(1)
+                        Text(L10n.text("小さめ(2 px = 1 pt)")).tag(2)
                     }
                     .pickerStyle(.radioGroup)
-                    Text("Windows の 32 px のカーソルは「標準」で 32 pt になります。「小さめ」は Retina で画素どおりの大きさですが、macOS の標準より小さく見えます。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(
+                        L10n.text(
+                            "Windows の 32 px のカーソルは「標準」で 32 pt になります。「小さめ」は Retina で画素どおりの大きさですが、macOS の標準より小さく見えます。")
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .formStyle(.grouped)
@@ -63,9 +66,9 @@ struct ImportSheet: View {
 
             HStack {
                 Spacer()
-                Button("キャンセル", role: .cancel) { dismiss() }
+                Button(L10n.text("キャンセル"), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("ライブラリに追加") {
+                Button(L10n.text("ライブラリに追加")) {
                     guard case .success(let parsed)? = result else { return }
                     var theme = parsed.theme
                     theme.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -118,7 +121,8 @@ struct ImportSheet: View {
                     }
                     if !parsed.skipped.isEmpty {
                         Label(
-                            "取り込まないもの: \(parsed.skipped.sorted().joined(separator: ", "))",
+                            L10n.text(
+                                "取り込まないもの: {0}", String(describing: parsed.skipped.sorted().joined(separator: ", "))),
                             systemImage: "info.circle"
                         )
                         .font(.caption)
@@ -132,7 +136,7 @@ struct ImportSheet: View {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 28))
                     .foregroundStyle(.orange)
-                Text(isCape ? "この .cape は取り込めません" : "このフォルダは取り込めません").font(.headline)
+                Text(isCape ? L10n.text("この .cape は取り込めません") : L10n.text("このフォルダは取り込めません")).font(.headline)
                 Text("\(error)")
                     .font(.caption)
                     .foregroundStyle(.secondary)

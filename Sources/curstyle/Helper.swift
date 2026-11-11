@@ -136,6 +136,15 @@ enum Helper {
         let logDir = SnapshotStore.defaultRoot
         let binDir = logDir.appendingPathComponent("bin", isDirectory: true)
         try fm.createDirectory(at: binDir, withIntermediateDirectories: true)
+        let resourceBundle = L10n.resourceBundleURL
+        let resourceDestination = binDir.appendingPathComponent(resourceBundle.lastPathComponent)
+        let resourceStaging = binDir.appendingPathComponent("resources.staging-\(UUID().uuidString)")
+        try fm.copyItem(at: resourceBundle, to: resourceStaging)
+        if fm.fileExists(atPath: resourceDestination.path) {
+            _ = try fm.replaceItemAt(resourceDestination, withItemAt: resourceStaging)
+        } else {
+            try fm.moveItem(at: resourceStaging, to: resourceDestination)
+        }
         let installed = binDir.appendingPathComponent("curstyle")
         let staging = binDir.appendingPathComponent("curstyle.staging-\(UUID().uuidString)")
         try fm.copyItem(at: executable, to: staging)

@@ -5,3 +5,12 @@ xcuserdata/
 DerivedData/
 .DS_Store
 .claude/settings.local.json
+
+# 開発メモ(非公開)。コードから参照される PHASE0.md / PHASE3_5.md だけ公開する
+docs/phase0/
+docs/PLAN.md
+docs/PHASE1.md
+docs/PHASE2.md
+docs/PHASE3.md
+docs/PHASE4.md
+docs/PHASE5.md

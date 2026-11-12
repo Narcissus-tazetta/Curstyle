@@ -1,3 +1,0 @@
-read com.apple.coregraphics.ArrowS	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
-read com.apple.cursor.13	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e
-read com.curstyle.probe.test	err=0	size=32x32 hot=(0,0) frames=1 dur=0.0000 images=[64x64] hash=c1b44ae4d50a0d2e

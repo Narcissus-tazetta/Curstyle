@@ -1,6 +1,6 @@
 # Phase 0 実測結果(macOS 27.2 / arm64)
 
-実測ツールは `swift run curstyle-probe <command>`(`Sources/curstyle-probe`)。生ログは `docs/phase0/`。
+実測ツールは `swift run curstyle-probe <command>`(`Sources/curstyle-probe`)。
 
 ## シグネチャ(逆アセンブルで引数レジスタを確認、型の意味は戻り値で確認)
 

@@ -12,6 +12,9 @@ public enum CapeImporter {
         public var adjustments: [String]
     }
 
+    /// 24コマを超えるアニメは取り込み時に間引くが、元のコマ数にも現実的な上限を置く。
+    static let maxFrameCount = 100_000.0
+
     public static func importTheme(file: URL, name: String?) throws -> Result {
         let plist: Any
         do {
@@ -85,12 +88,16 @@ public enum CapeImporter {
             return n.doubleValue
         }
         let size = CGSize(width: try number("PointsWide"), height: try number("PointsHigh"))
-        let frameCount = Int(try number("FrameCount"))
+        let frameCountValue = try number("FrameCount")
         let hotspot = CGPoint(x: try number("HotSpotX"), y: try number("HotSpotY"))
-        guard size.width >= 1, size.height >= 1, frameCount >= 1 else {
+        // plist の数値は何でも入る。Int への変換や画像の確保で落ちないよう、変換の前に範囲を確かめる(NaN も弾かれる)。
+        guard (1...256).contains(size.width), (1...256).contains(size.height),
+            (1...Self.maxFrameCount).contains(frameCountValue)
+        else {
             throw CursorKitError.invalidCursor(
-                L10n.text("size={0} frameCount={1} が不正", String(describing: size), String(describing: frameCount)))
+                L10n.text("size={0} frameCount={1} が不正", String(describing: size), String(describing: frameCountValue)))
         }
+        let frameCount = Int(frameCountValue)
         // 静止画にも FrameDuration=1 が入っている。登録形式では静止画の間隔は 0。
         let frameDuration = frameCount > 1 ? try number("FrameDuration") : 0
 

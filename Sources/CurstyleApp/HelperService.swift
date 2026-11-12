@@ -36,12 +36,28 @@ enum HelperService {
     static var hasLegacyInstall: Bool { FileManager.default.fileExists(atPath: legacyPlist.path) }
 
     static func enable() throws {
-        if hasLegacyInstall {
-            // 動いていない(bootout 済み)なら失敗するが、plist を消せば足りるので終了コードは見ない。
-            _ = try launchctl(["bootout", "gui/\(getuid())/\(label)"])
-            try FileManager.default.removeItem(at: legacyPlist)
+        guard hasLegacyInstall else {
+            try service.register()
+            return
         }
-        try service.register()
+        // 同じラベルの旧方式が残っていると register できないので先に外すが、register が失敗したときに
+        // ヘルパーが無い状態で終わらないよう、外す前の plist を取っておいて戻す。
+        let legacyData = try Data(contentsOf: legacyPlist)
+        // 動いていない(bootout 済み)なら失敗するが、plist を消せば足りるので終了コードは見ない。
+        _ = try launchctl(["bootout", "gui/\(getuid())/\(label)"])
+        try FileManager.default.removeItem(at: legacyPlist)
+        do {
+            try service.register()
+        } catch {
+            try legacyData.write(to: legacyPlist, options: .atomic)
+            guard try launchctl(["bootstrap", "gui/\(getuid())", legacyPlist.path]) == 0 else {
+                throw CursorKitError.io(
+                    L10n.text(
+                        "ヘルパーの登録に失敗し、旧方式の再登録にも失敗した({0})。`curstyle helper install` で入れ直せる",
+                        String(describing: error)))
+            }
+            throw error
+        }
     }
 
     static func disable() throws {

@@ -267,7 +267,17 @@ public final class AutoReapply {
 
         let report: ApplyReport
         do {
-            report = try store.withLock { try CursorEngine(backend: backend, store: store).apply(theme) }
+            // 上のジャーナルは、ロックを取る前に読んだもの。その間に利用者が restore / apply していたら、
+            // 古い判断で入れ直して操作を取り消さないよう、ロックの中で読み直して食い違えば何もしない。
+            let applied = try store.withLock { () -> ApplyReport? in
+                guard try store.loadJournal().updatedAt == journal.updatedAt else { return nil }
+                return try CursorEngine(backend: backend, store: store).apply(theme)
+            }
+            guard let applied else {
+                trigger("journal-changed")
+                return L10n.text("ロック取得前にジャーナルが変わったので入れ直さない。状態を確かめ直す")
+            }
+            report = applied
         } catch CursorKitError.busy(let message) {
             trigger("busy-retry", after: config.busyRetryDelay)
             return L10n.text(

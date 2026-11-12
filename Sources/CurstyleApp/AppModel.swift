@@ -136,8 +136,17 @@ final class AppModel {
                 let rolledBack = report.rollback?.succeeded == true
                 show(
                     .failure, L10n.text("適用できませんでした"),
-                    "\(failure)。\(rolledBack ? L10n.text("前の状態へ戻しました。") : L10n.text("前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。"))"
+                    rolledBack
+                        ? L10n.text("{0}。前の状態へ戻しました。", String(describing: failure))
+                        : L10n.text("{0}。前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。", String(describing: failure))
                 )
+            } else if !report.leftoverFailures.isEmpty {
+                lastAppliedEntryID = entry.id
+                show(
+                    .failure, L10n.text("適用しましたが一部を標準へ戻せませんでした"),
+                    L10n.text(
+                        "前のテーマにだけあった名前を戻せなかった: {0}。「標準に戻す」を試してください。",
+                        String(describing: report.leftoverFailures.joined(separator: ", "))))
             } else {
                 let count = report.results.filter { $0.outcome == .applied }.count
                 lastAppliedEntryID = entry.id

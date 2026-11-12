@@ -215,7 +215,8 @@ struct ThemeDetailView: View {
     private var sizeText: String {
         let sizes = Set(entry.theme.cursors.values.map { Int(max($0.size.width, $0.size.height)) })
         guard let low = sizes.min(), let high = sizes.max() else { return "-" }
-        return low == high ? "\(low) pt" : "\(low)〜\(high) pt"
+        return low == high
+            ? "\(low) pt" : L10n.text("{0}〜{1} pt", String(describing: low), String(describing: high))
     }
 
     private func commitRename() {
@@ -265,7 +266,8 @@ private struct CursorTile: View {
                 String(describing: fmt(rep.hotspot.x)), String(describing: fmt(rep.hotspot.y)))
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(CursorRoles.title(for: key))、\(detail)")
+        .accessibilityLabel(
+            L10n.text("{0}、{1}", String(describing: CursorRoles.title(for: key)), String(describing: detail)))
     }
 
     private var detail: String {

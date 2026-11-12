@@ -478,6 +478,57 @@ final class WindowsCursorImporterTests: XCTestCase {
         _ = try imported.theme.resolvedPlan()
     }
 
+    func testAnimationWithFewerRateEntriesThanStepsIsRejected() throws {
+        func integer(_ value: UInt32) -> Data {
+            withUnsafeBytes(of: value.littleEndian) { Data($0) }
+        }
+        func chunk(_ name: String, _ contents: Data) -> Data {
+            Data(name.utf8) + integer(UInt32(contents.count)) + contents
+                + (contents.count % 2 == 1 ? Data([0]) : Data())
+        }
+        let header: [UInt32] = [36, 2, 2, 0, 0, 0, 0, 1, 1]
+        let icons = (0..<2).reduce(Data("fram".utf8)) { data, _ in
+            data + chunk("icon", makeMockCUR(width: 16, height: 16))
+        }
+        let acon =
+            Data("ACON".utf8) + chunk("anih", header.reduce(Data()) { $0 + integer($1) })
+            + chunk("rate", integer(5)) + chunk("LIST", icons)
+        XCTAssertThrowsError(try WindowsCursorImporter.parseANI(Data("RIFF".utf8) + integer(UInt32(acon.count)) + acon))
+    }
+
+    func testCapeWithOutOfRangeNumbersIsRejectedInsteadOfCrashing() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try! FileManager.default.removeItem(at: directory) }
+        let png = Data(
+            base64Encoded:
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")!
+        for (key, value) in [("FrameCount", 1e30), ("PointsWide", Double.infinity), ("PointsHigh", Double.nan)] {
+            var cursor: [String: Any] = [
+                "PointsWide": 1.0, "PointsHigh": 1.0, "FrameCount": 1.0, "FrameDuration": 1.0, "HotSpotX": 0.0,
+                "HotSpotY": 0.0, "Representations": [png],
+            ]
+            cursor[key] = value
+            let file = directory.appendingPathComponent("\(key).cape")
+            try PropertyListSerialization.data(
+                fromPropertyList: ["Cursors": ["com.apple.coregraphics.ArrowS": cursor]], format: .binary, options: 0
+            ).write(to: file)
+            XCTAssertThrowsError(try CapeImporter.importTheme(file: file, name: nil), key)
+        }
+    }
+
+    func testFileSharingARoleWithAnEarlierFileStillFillsFreeRoles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try! FileManager.default.removeItem(at: directory) }
+        try makeMockCUR(width: 16, height: 16).write(to: directory.appendingPathComponent("size_left.cur"))
+        try makeMockCUR(width: 16, height: 16).write(to: directory.appendingPathComponent("horizontal.cur"))
+        let result = try WindowsCursorImporter.importTheme(directory: directory, name: "t", pixelsPerPoint: 1)
+        XCTAssertNotNil(result.theme.cursors["WindowResizeEastWest"])
+        XCTAssertNotNil(result.theme.cursors["ResizeLeft"])
+        XCTAssertNotNil(result.theme.cursors["ResizeLeftRight"])
+    }
+
     // MARK: - Helpers
 
     private func makeMockCUR(width: Int, height: Int) -> Data {

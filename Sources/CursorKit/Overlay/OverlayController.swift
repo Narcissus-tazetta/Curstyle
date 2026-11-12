@@ -188,8 +188,8 @@ public final class OverlayController {
                     "[overlay {0}] テーマ {1} で開始(照合表 {2} 件)", String(describing: reason), String(describing: theme.name),
                     String(describing: matcher.count)))
         } catch {
-            renderer?.stop()
-            renderer = nil
+            // 本物を表示に戻せなかった場合に fatal へ回すため、直接 stop() せず stop(reason:) を通す。
+            stop(reason: L10n.text("開始できない: {0}", String(describing: error)))
             status.running = false
             status.stoppedReason = L10n.text("開始できない: {0}", String(describing: error))
             status.stoppedAt = Date()

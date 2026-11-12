@@ -75,7 +75,9 @@ public enum WindowsCursorImporter {
                 skipped.append(file.lastPathComponent)
                 continue
             }
-            guard keys.allSatisfy({ cursors[$0] == nil }) else { continue }
+            // 先に来たファイルが取った役割は譲らず、空いている役割だけに使う。全部取られていれば(.ani の静止画版など)読まない。
+            let freeKeys = keys.filter { cursors[$0] == nil }
+            guard !freeKeys.isEmpty else { continue }
             let rep: CursorRep
             do {
                 let imported = try cursorRep(
@@ -88,7 +90,7 @@ public enum WindowsCursorImporter {
             } catch {
                 throw CursorKitError.theme("\(file.lastPathComponent): \(error)")
             }
-            for key in keys { cursors[key] = rep }
+            for key in freeKeys { cursors[key] = rep }
         }
         guard !cursors.isEmpty else { throw CursorKitError.theme(L10n.text("{0} に取り込める .ani / .cur が無い", String(describing: directory.path))) }
         return Result(theme: CursorTheme(name: name, cursors: cursors), skippedFiles: skipped, adjustments: adjustments)
@@ -748,6 +750,12 @@ public enum WindowsCursorImporter {
         let order = seq ?? Array(0..<header.steps)
         guard order.count == header.steps, order.allSatisfy({ decoded.indices.contains($0) }) else {
             throw CursorKitError.invalidCursor(L10n.text("ステップ数 {0} とフレーム数 {1} が合わない", String(describing: header.steps), String(describing: decoded.count)))
+        }
+        if let rate, rate.count < header.steps {
+            throw CursorKitError.invalidCursor(
+                L10n.text(
+                    "rate チャンクの数 {0} がステップ数 {1} より少ない", String(describing: rate.count),
+                    String(describing: header.steps)))
         }
         let durations = (0..<header.steps).map { rate?[$0] ?? header.jiffies }
         guard durations.allSatisfy({ $0 > 0 }) else { throw CursorKitError.invalidCursor(L10n.text("表示時間が 0 のステップがある")) }

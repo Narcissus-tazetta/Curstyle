@@ -69,11 +69,13 @@ extension CursorRep {
         }
 
         // 登録形式は全コマ同じ間隔なので、間隔が違えば最大公約数で割ってコマを繰り返す(.ani と同じ)。
-        var sequence = frames
+        // 繰り返すコマは先に1回だけ正規化する(間隔が互いに素に近い GIF では繰り返しが多く、毎回やり直すと重い)。
+        let normalizedFrames = frames.map(normalizedImage)
+        var sequence = normalizedFrames
         var duration = 0.0
         if frames.count > 1 {
             let unit = delays.reduce(0) { gcd($0, $1) }
-            sequence = zip(frames, delays).flatMap { Array(repeating: $0, count: $1 / unit) }
+            sequence = zip(normalizedFrames, delays).flatMap { Array(repeating: $0, count: $1 / unit) }
             duration = Double(unit) / 100
         }
 
@@ -81,7 +83,7 @@ extension CursorRep {
         let size = CGSize(
             width: max(1, (Double(first.width) * pointSize / longer).rounded()),
             height: max(1, (Double(first.height) * pointSize / longer).rounded()))
-        let strip = try WindowsCursorImporter.stack(sequence.map(normalizedImage))
+        let strip = try WindowsCursorImporter.stack(sequence)
         let images = try [1, 2].map {
             try resampleStrip(
                 strip, frameCount: sequence.count,

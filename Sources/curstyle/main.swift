@@ -208,6 +208,11 @@ do {
             }
             exit(1)
         }
+        if !report.leftoverFailures.isEmpty {
+            print("警告: 前のテーマにだけあった名前を標準へ戻せなかった: \(report.leftoverFailures.joined(separator: ", "))")
+            print("`curstyle restore` で標準へ戻せる")
+            exit(1)
+        }
         print("適用完了(読み戻しは一致。画面への反映は目視で確認すること)")
 
     case "reset-system":

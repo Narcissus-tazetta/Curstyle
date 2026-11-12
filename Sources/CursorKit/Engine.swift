@@ -23,6 +23,8 @@ public struct ApplyReport: Sendable {
     /// 失敗したときの原因と、ロールバックの結果。
     public var failure: String?
     public var rollback: RestoreReport?
+    /// 前のテーマにだけあった名前を標準へ戻せなかったもの。適用自体は成功しているが、前のテーマの画像が残っている。
+    public var leftoverFailures: [String] = []
     public var succeeded: Bool { failure == nil }
 }
 
@@ -255,14 +257,22 @@ public final class CursorEngine {
             }
         }
 
+        var leftoverFailures: [String] = []
         if !leftovers.isEmpty {
             let report = try recovery.restore(names: Array(leftovers))
             results += report.results
-            for r in report.results where r.outcome != .failed && r.readbackMatches { journal.intended[r.name] = nil }
+            for r in report.results {
+                if r.outcome != .failed && r.readbackMatches {
+                    journal.intended[r.name] = nil
+                } else {
+                    leftoverFailures.append(r.name)
+                }
+            }
         }
         journal.status = .applied
         try store.saveJournal(journal)
         return ApplyReport(
-            themeName: theme.name, environment: env, results: results, failure: nil, rollback: nil)
+            themeName: theme.name, environment: env, results: results, failure: nil, rollback: nil,
+            leftoverFailures: leftoverFailures.sorted())
     }
 }

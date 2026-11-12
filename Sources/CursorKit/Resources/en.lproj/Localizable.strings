@@ -279,8 +279,6 @@
 "別の curstyle が適用・復元中({0} がロックされている)" = "Another curstyle process is applying or restoring cursors ({0} is locked)";
 "削除" = "Delete";
 "削除できませんでした" = "Could not delete the theme";
-"前の状態へ戻しました。" = "The previous state was restored.";
-"前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。" = "Some cursors could not be restored. Try Restore Defaults.";
 "前回の適用が完了していない。`curstyle restore` で標準へ戻せる" = "The previous application did not finish. Run `curstyle restore` to restore defaults.";
 "前回の適用が途中で止まっている。`curstyle restore` で標準へ戻してから適用し直すこと" = "The previous application was interrupted. Run `curstyle restore` before applying again.";
 "取り込まないもの: {0}" = "Skipped: {0}";
@@ -413,3 +411,12 @@
 "開始できない: {0}" = "Could not start: {0}";
 "静止画" = "Static";
 "非公開シンボル {0} がこの OS に無い(未対応)" = "Private symbol {0} is unavailable on this OS (unsupported)";
+"rate チャンクの数 {0} がステップ数 {1} より少ない" = "The rate chunk has {0} entries, fewer than the {1} steps";
+"ロック取得前にジャーナルが変わったので入れ直さない。状態を確かめ直す" = "The journal changed before the lock was acquired, so nothing was reapplied. Rechecking the state";
+"適用しましたが一部を標準へ戻せませんでした" = "Applied, but some previous cursors could not be restored";
+"前のテーマにだけあった名前を戻せなかった: {0}。「標準に戻す」を試してください。" = "Could not restore cursors that only the previous theme had: {0}. Try Restore Defaults.";
+"ヘルパーの登録に失敗し、旧方式の再登録にも失敗した({0})。`curstyle helper install` で入れ直せる" = "Registering the helper failed, and so did restoring the old registration ({0}). Reinstall with `curstyle helper install`";
+"{0}。前の状態へ戻しました。" = "{0}. The previous state was restored.";
+"{0}。前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。" = "{0}. Some cursors could not be restored. Try Restore Defaults.";
+"{0}〜{1} pt" = "{0}–{1} pt";
+"{0}、{1}" = "{0}, {1}";

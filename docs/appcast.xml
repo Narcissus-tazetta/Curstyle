@@ -1,0 +1,37 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Curstyle</title>
+        <item>
+            <title>0.1.0</title>
+            <pubDate>Sat, 14 Nov 2026 02:19:35 +0000</pubDate>
+            <link>https://github.com/Narcissus-tazetta/Curstyle</link>
+            <sparkle:version>100</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[First public release of Curstyle, a macOS cursor theme changer.
+
+**Get themes**
+- Import Windows cursor themes (`.cur` / `.ani`), Mousecape `.cape` files, and GIFs.
+- Long animations are resampled to 24 frames automatically.
+
+**Make them yours**
+- Preview every cursor, animated, in light and dark mode.
+- Edit hotspots and animation speed, replace any cursor with a GIF or PNG, and scale the whole theme from 0.1x to 5x.
+
+**Use them**
+- Apply a theme, or go back to the macOS defaults, from the app or the menu bar.
+- Your theme is reapplied after login, restart, wake, and pointer setting changes.
+- If a theme does not show up, built-in diagnostics can export a report.
+
+**Also**
+- Updates arrive in-app through Sparkle.
+- English and Japanese.
+
+Apple Silicon only, tested on macOS 27.2. Curstyle is not notarized: on first launch, choose **Open Anyway** in System Settings → Privacy & Security.
+]]></description>
+            <enclosure url="https://github.com/Narcissus-tazetta/Curstyle/releases/download/v0.1.0/Curstyle-macos-v0.1.0.zip" length="3856791" type="application/octet-stream" sparkle:edSignature="DRbEXJfVf0TlG4ckOAqk+VngUU6i106PgEmIjfWSHSZCgywnqYA3ZCSBflU3b5pdqg/gQNATIYHdJk6r0x5QDg=="/>
+        </item>
+    </channel>
+</rss>

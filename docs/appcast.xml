@@ -3,6 +3,23 @@
     <channel>
         <title>Curstyle</title>
         <item>
+            <title>0.1.1</title>
+            <pubDate>Sat, 14 Nov 2026 02:59:33 +0000</pubDate>
+            <link>https://github.com/Narcissus-tazetta/Curstyle</link>
+            <sparkle:version>101</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Fixes Curstyle quitting immediately at launch in v0.1.0.
+
+**Fixed**
+- The app and its helper could not find their bundled language files and crashed on startup, so nothing appeared when you opened it. If you downloaded v0.1.0, please download this version instead.
+
+Apple Silicon only, tested on macOS 27.2. Curstyle is not notarized: on first launch, choose **Open Anyway** in System Settings → Privacy & Security.
+]]></description>
+            <enclosure url="https://github.com/Narcissus-tazetta/Curstyle/releases/download/v0.1.1/Curstyle-macos-v0.1.1.zip" length="3859753" type="application/octet-stream" sparkle:edSignature="+b9+5iZLFVxLLXY4RWk6ghGgstdLxslPvN6oZbI24zfL58CjTl/SyBu090FIcdylhL3xTtZZ/oXNMRVG67MrDg=="/>
+        </item>
+        <item>
             <title>0.1.0</title>
             <pubDate>Sat, 14 Nov 2026 02:19:35 +0000</pubDate>
             <link>https://github.com/Narcissus-tazetta/Curstyle</link>

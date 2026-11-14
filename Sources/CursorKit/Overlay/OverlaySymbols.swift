@@ -22,6 +22,11 @@ public struct OverlaySymbols: @unchecked Sendable {
     let cursorSeed: SeedFn
     let cursorIsVisible: VisibleFn
     let getCursorScale: ScaleFn?
+    let getBackgroundEventMask: GetMaskFn?
+    let setBackgroundEventMask: SetMaskFn?
+
+    typealias GetMaskFn = @convention(c) (Int32, UnsafeMutablePointer<UInt32>) -> Int32
+    typealias SetMaskFn = @convention(c) (Int32, UInt32) -> Int32
 
     public static func missing() -> [String] {
         names.filter { lookup($0) == nil }
@@ -40,6 +45,8 @@ public struct OverlaySymbols: @unchecked Sendable {
         // Swift からは unavailable 扱いだが、シンボルは残っている(macOS 27.2)。
         cursorIsVisible = try need("CGCursorIsVisible", VisibleFn.self)
         getCursorScale = Self.lookup("CGSGetCursorScale").map { unsafeBitCast($0, to: ScaleFn.self) }
+        getBackgroundEventMask = Self.lookup("SLSGetBackgroundEventMask").map { unsafeBitCast($0, to: GetMaskFn.self) }
+        setBackgroundEventMask = Self.lookup("SLSSetBackgroundEventMask").map { unsafeBitCast($0, to: SetMaskFn.self) }
     }
 
     // dlopen のハンドルは読み取り専用で使う。
@@ -52,6 +59,13 @@ public struct OverlaySymbols: @unchecked Sendable {
     }
 
     var isCursorVisible: Bool { cursorIsVisible() != 0 }
+
+    /// バックグラウンドのプロセスに届くイベントの種類。取れなければ nil。
+    func backgroundEventMask(_ cid: Int32) -> UInt32? {
+        guard let getBackgroundEventMask else { return nil }
+        var mask: UInt32 = 0
+        return getBackgroundEventMask(cid, &mask) == 0 ? mask : nil
+    }
 
     func cursorScale(_ cid: Int32) -> CGFloat {
         guard let getCursorScale else { return 1 }

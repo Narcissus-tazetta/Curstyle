@@ -40,6 +40,8 @@ public final class OverlayRenderer {
     private var cursorScale: CGFloat = 1
     private var location = CGPoint.zero
     private var trailing: DispatchWorkItem?
+    private var savedEventMask: UInt32?
+    private var eventMaskUnavailableLogged = false
 
     public init(
         symbols: OverlaySymbols, matcher: ShapeMatcher, plan: [String: CursorRep], log: @escaping (String) -> Void
@@ -81,6 +83,8 @@ public final class OverlayRenderer {
         for w in windows { w.orderOut(nil) }
         windows = []
         layers = []
+        if let savedEventMask { _ = symbols.setBackgroundEventMask?(cid, savedEventMask) }
+        savedEventMask = nil
         // CGSHideCursor は呼んだ回数だけ数える(隠し直しのたびに増える)ので、同じ回数だけ表示する。
         for _ in 0..<hideCount { _ = symbols.showCursor(cid) }
         hideCount = 0
@@ -93,6 +97,25 @@ public final class OverlayRenderer {
         }
         log(L10n.text("overlay 停止: 本物の表示={0}", String(describing: visible)))
         return visible
+    }
+
+    /// 全画面の透明ウィンドウがカーソルの下にあるので、WindowServer はマウスが動くたびに mouseMoved をこのプロセスへ
+    /// 送る(ignoresMouseEvents でも止まらない)。位置は mouseLocation で読むのでイベントは使わないが、受け取るだけで
+    /// 移動中の CPU がイベントの頻度に比例して増える(500Hz で約13%、実測)。バックグラウンドへの配信を止める。
+    /// ウィンドウを出すと AppKit がマスクを戻す(実測)ので、ウィンドウを作った後と、止まっている間に定期的に確かめ直す。
+    private func stopMouseMovedEvents() {
+        let bit = UInt32(1) << CGEventType.mouseMoved.rawValue
+        guard let mask = symbols.backgroundEventMask(cid), let set = symbols.setBackgroundEventMask else {
+            if !eventMaskUnavailableLogged {
+                eventMaskUnavailableLogged = true
+                log(L10n.text("バックグラウンドのイベントマスクを変えられない(移動中の CPU が増える)"))
+            }
+            return
+        }
+        guard mask & bit != 0 else { return }
+        if savedEventMask == nil { savedEventMask = mask }
+        let err = set(cid, mask & ~bit)
+        if err != 0 { log(L10n.text("SLSSetBackgroundEventMask が err={0} を返した", String(describing: err))) }
     }
 
     /// ディスプレイの増減・配置の変更のたびに作り直す。
@@ -124,6 +147,7 @@ public final class OverlayRenderer {
             windows.append(w)
             layers.append(layer)
         }
+        stopMouseMovedEvents()
         lastSeed = -1
         refreshShape()
         move()
@@ -209,6 +233,7 @@ public final class OverlayRenderer {
         if idleTicks % 15 == 0 {
             let scale = symbols.cursorScale(cid)
             if scale != cursorScale { updateScale() }
+            stopMouseMovedEvents()
         }
     }
 

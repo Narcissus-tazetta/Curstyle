@@ -35,6 +35,8 @@
 "PNG を作れない: {0}" = "Could not create PNG: {0}";
 "PNG を書けない: {0}" = "Could not write PNG: {0}";
 "SetsCursorInBackground が err={0} を返した" = "SetsCursorInBackground returned err={0}";
+"バックグラウンドのイベントマスクを変えられない(移動中の CPU が増える)" = "Could not change the background event mask (CPU use while moving will be higher)";
+"SLSSetBackgroundEventMask が err={0} を返した" = "SLSSetBackgroundEventMask returned err={0}";
 "Windows の 32 px のカーソルは「標準」で 32 pt になります。「小さめ」は Retina で画素どおりの大きさですが、macOS の標準より小さく見えます。" = "A 32 px Windows cursor becomes 32 pt with Standard. Smaller preserves its pixel size on Retina displays but may look smaller than the macOS default.";
 "Windows のカーソルテーマ(.ani / .cur)のフォルダ、.cape ファイル、Curstyle のテーマ(theme.json)のフォルダを選んでください" = "Choose a Windows cursor theme folder (.ani / .cur), a .cape file, or a Curstyle theme folder (theme.json).";
 "Windows のカーソルテーマ(.ani / .cur)のフォルダか .cape ファイルをここへドラッグするか、下のボタンから選んでください。取り込んだテーマは適用する前にプレビューできます。" = "Drag a Windows cursor theme folder (.ani / .cur) or a .cape file here, or choose one below. You can preview themes before applying them.";

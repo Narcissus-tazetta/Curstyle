@@ -35,6 +35,8 @@
 "PNG を作れない: {0}" = "PNG を作れない: {0}";
 "PNG を書けない: {0}" = "PNG を書けない: {0}";
 "SetsCursorInBackground が err={0} を返した" = "SetsCursorInBackground が err={0} を返した";
+"バックグラウンドのイベントマスクを変えられない(移動中の CPU が増える)" = "バックグラウンドのイベントマスクを変えられない(移動中の CPU が増える)";
+"SLSSetBackgroundEventMask が err={0} を返した" = "SLSSetBackgroundEventMask が err={0} を返した";
 "Windows の 32 px のカーソルは「標準」で 32 pt になります。「小さめ」は Retina で画素どおりの大きさですが、macOS の標準より小さく見えます。" = "Windows の 32 px のカーソルは「標準」で 32 pt になります。「小さめ」は Retina で画素どおりの大きさですが、macOS の標準より小さく見えます。";
 "Windows のカーソルテーマ(.ani / .cur)のフォルダ、.cape ファイル、Curstyle のテーマ(theme.json)のフォルダを選んでください" = "Windows のカーソルテーマ(.ani / .cur)のフォルダ、.cape ファイル、Curstyle のテーマ(theme.json)のフォルダを選んでください";
 "Windows のカーソルテーマ(.ani / .cur)のフォルダか .cape ファイルをここへドラッグするか、下のボタンから選んでください。取り込んだテーマは適用する前にプレビューできます。" = "Windows のカーソルテーマ(.ani / .cur)のフォルダか .cape ファイルをここへドラッグするか、下のボタンから選んでください。取り込んだテーマは適用する前にプレビューできます。";

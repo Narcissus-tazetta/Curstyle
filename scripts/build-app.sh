@@ -61,6 +61,13 @@ cp Support/Info.plist "$APP/Contents/Info.plist"
 cp Support/io.github.narcissus-tazetta.curstyle.helper.plist "$APP/Contents/Library/LaunchAgents/"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# Icon Composer の .icon は actool でしかコンパイルできない。Assets.car は macOS 26 の Liquid Glass 用、AppIcon.icns は旧 OS 用。
+ICON_TMP="$(mktemp -d)"
+xcrun actool Support/AppIcon.icon --compile "$ICON_TMP" --platform macosx --minimum-deployment-target 14.0 \
+  --app-icon AppIcon --output-partial-info-plist "$ICON_TMP/partial.plist" > /dev/null
+cp "$ICON_TMP/AppIcon.icns" "$ICON_TMP/Assets.car" "$APP/Contents/Resources/"
+rm -rf "$ICON_TMP"
+
 # SwiftPM が付ける rpath は実行ファイルの隣を見るので、Frameworks/ を見る rpath を足す。署名より前でないと壊れる。
 if ! otool -l "$APP/Contents/MacOS/CurstyleApp" | grep -q "@executable_path/../Frameworks"; then
   install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/CurstyleApp"

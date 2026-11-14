@@ -39,6 +39,9 @@ jobs:
             - name: Test
               run: swift test
 
+            - name: Install create-dmg
+              run: brew install create-dmg
+
             - name: Build zip and dmg
               env:
                   ARCH_MODE: ${{ inputs.universal && 'universal' || 'arm64' }}

@@ -22,7 +22,23 @@ ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname Curstyle -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+
+if command -v create-dmg >/dev/null 2>&1; then
+  # create-dmg は Finder を AppleScript で操作して配置を焼くので、ヘッドレス環境では失敗しうる。
+  create-dmg \
+    --volname Curstyle \
+    --window-size 600 400 \
+    --background Support/dmg-background.tiff \
+    --icon-size 100 \
+    --icon Curstyle.app 150 200 \
+    --app-drop-link 450 200 \
+    --volicon "$APP/Contents/Resources/AppIcon.icns" \
+    --format UDZO \
+    "$DMG" "$STAGE"
+else
+  echo "create-dmg が無いので hdiutil で素の DMG を作る(brew install create-dmg で整う)" >&2
+  ln -s /Applications "$STAGE/Applications"
+  hdiutil create -volname Curstyle -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+fi
 
 ls -lh "$ZIP" "$DMG"

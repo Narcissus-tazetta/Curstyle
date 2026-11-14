@@ -89,4 +89,35 @@ codesign --force --sign - --identifier io.github.narcissus-tazetta.curstyle.cli 
 codesign --force --sign - "$APP"
 codesign --verify --deep --strict "$APP"
 
+# SwiftPM の Bundle.module はビルド時の絶対パスにも頼るので、ビルドしたマシンでは .app の中身が欠けても動いて見える。
+# 埋め込まれるパスは --show-bin-path と別の場所(中間ディレクトリ)なので、ビルド先にある全コピーを退避してから、
+# .app 単体でリソースを読めること(diagnose が L10n を通る)を確かめる。
+HIDDEN_LIST="$(mktemp)"
+restore_bundles() {
+  while IFS= read -r hidden; do mv "$hidden" "${hidden%.hidden}"; done < "$HIDDEN_LIST"
+  rm -f "$HIDDEN_LIST"
+}
+trap restore_bundles EXIT
+while IFS= read -r bundle; do
+  mv "$bundle" "$bundle.hidden"
+  echo "$bundle.hidden" >> "$HIDDEN_LIST"
+done < <(find "$SCRATCH" -name Curstyle_CursorKit.bundle -type d -prune)
+if [[ ! -s "$HIDDEN_LIST" ]]; then
+  echo "ビルド先に Curstyle_CursorKit.bundle が見つからない" >&2
+  exit 1
+fi
+# diagnose はヘッドレスの CI では環境のせいで非ゼロ終了しうるので、終了コードではなくクラッシュ(シグナル終了か fatal error)だけを見る。
+SMOKE_OUT="$(mktemp)"
+set +e
+"$APP/Contents/MacOS/curstyle" diagnose > "$SMOKE_OUT" 2>&1
+SMOKE_RC=$?
+set -e
+if [[ "$SMOKE_RC" -ge 128 ]] || grep -q "Fatal error" "$SMOKE_OUT"; then
+  echo "ビルド先のバンドルを隠すと curstyle diagnose がクラッシュする(リソースの同梱漏れ) rc=$SMOKE_RC" >&2
+  cat "$SMOKE_OUT" >&2
+  exit 1
+fi
+echo "スモークテスト: curstyle diagnose rc=$SMOKE_RC(クラッシュなし)"
+rm -f "$SMOKE_OUT"
+
 echo "組み立てた: $APP (${VERSION:-ローカルビルド}, $ACTUAL_ARCHS)"

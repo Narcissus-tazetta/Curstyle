@@ -25,12 +25,27 @@ public enum L10n {
         preferences.set([language], forKey: "AppleLanguages")
     }
 
-    public static var resourceBundleURL: URL { Bundle.module.bundleURL }
+    // SwiftPM's Bundle.module only looks next to the .app and at the absolute build path, so a distributed app
+    // that was built elsewhere crashes at launch. Look where the app, the CLI inside it, and the copied helper keep it.
+    public static let resourceBundleURL: URL = {
+        let name = "Curstyle_CursorKit.bundle"
+        let main = Bundle.main
+        let candidates = [
+            main.resourceURL,
+            main.bundleURL,
+            main.executableURL?.deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("Resources", isDirectory: true),
+        ].compactMap { $0?.appendingPathComponent(name, isDirectory: true) }
+        return candidates.first { FileManager.default.fileExists(atPath: $0.path) } ?? Bundle.module.bundleURL
+    }()
 
-    private static let bundles: [String: Bundle] = Dictionary(
-        uniqueKeysWithValues: ["en", "ja"].map {
-            ($0, Bundle(url: Bundle.module.url(forResource: $0, withExtension: "lproj")!)!)
-        })
+    private static let bundles: [String: Bundle] = {
+        let resources = Bundle(url: resourceBundleURL)!
+        return Dictionary(
+            uniqueKeysWithValues: ["en", "ja"].map {
+                ($0, Bundle(url: resources.url(forResource: $0, withExtension: "lproj")!)!)
+            })
+    }()
     private static let placeholder = try! NSRegularExpression(pattern: #"\{(\d+)\}"#)
 
     public static func text(_ key: String, _ arguments: String...) -> String {

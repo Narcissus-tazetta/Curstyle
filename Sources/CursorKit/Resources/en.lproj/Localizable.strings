@@ -420,3 +420,11 @@
 "{0}。前の状態へ戻せなかった名前があります。「標準に戻す」を試してください。" = "{0}. Some cursors could not be restored. Try Restore Defaults.";
 "{0}〜{1} pt" = "{0}–{1} pt";
 "{0}、{1}" = "{0}, {1}";
+"アップデートを確認…" = "Check for Updates…";
+"アップデート" = "Updates";
+"新しいバージョンを自動で確認" = "Check for new versions automatically";
+"新しいバージョンがあれば知らせます。インストールは確認してから行います。" = "Curstyle tells you when a new version is available and asks before installing it.";
+"今すぐ確認" = "Check Now";
+"バージョン {0}" = "Version {0}";
+"配布版は、更新の署名を確認してから置き換えます。" = "The released app verifies an update's signature before replacing itself.";
+"アップデートの確認は配布版の Curstyle.app でだけ使えます(make-app.sh で組み立てたものでは無効)。" = "Update checks work only in the released Curstyle.app (disabled in apps assembled with make-app.sh).";

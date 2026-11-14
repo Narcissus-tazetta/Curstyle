@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingsPane: View {
     @Bindable var model: AppModel
+    @Environment(UpdateService.self) private var updates
     @AppStorage(L10n.preferenceKey, store: L10n.preferences) private var language = ""
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var showsDiagnostics = false
@@ -98,6 +99,40 @@ struct SettingsPane: View {
                     settingLabel(
                         L10n.text("ログイン時にメニューバーに表示"), systemImage: "menubar.rectangle", tint: .indigo,
                         detail: L10n.text("テーマの切り替えと「標準に戻す」をメニューバーから使えます。自動再適用には不要です。"))
+                }
+            }
+
+            Section(L10n.text("アップデート")) {
+                LabeledContent {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { updates.automaticallyChecks },
+                            set: { updates.setAutomaticallyChecks($0) })
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .disabled(!updates.isAvailable)
+                } label: {
+                    settingLabel(
+                        L10n.text("新しいバージョンを自動で確認"), systemImage: "arrow.down.circle.fill", tint: .green,
+                        detail: L10n.text("新しいバージョンがあれば知らせます。インストールは確認してから行います。"))
+                }
+                LabeledContent {
+                    Button(L10n.text("今すぐ確認")) { updates.checkForUpdates() }
+                        .disabled(!updates.isAvailable)
+                } label: {
+                    settingLabel(
+                        L10n.text(
+                            "バージョン {0}",
+                            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"),
+                        systemImage: "info.circle.fill", tint: .gray,
+                        detail: L10n.text("配布版は、更新の署名を確認してから置き換えます。"))
+                }
+                if !updates.isAvailable {
+                    notice(
+                        L10n.text("アップデートの確認は配布版の Curstyle.app でだけ使えます(make-app.sh で組み立てたものでは無効)。"),
+                        systemImage: "info.circle.fill", tint: .secondary)
                 }
             }
 

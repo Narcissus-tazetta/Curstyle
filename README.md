@@ -20,6 +20,38 @@ Replace system cursors for pointing, text selection, links, window resizing, and
 - **Reapply automatically** when a restart, login, or pointer setting change resets your theme.
 - **Diagnose problems** and export a report from Settings.
 
+## Reliability and recovery
+
+- **Verified application.** With the default backend, Curstyle checks that registered cursor images match your theme. If application fails, it attempts to restore the saved defaults.
+- **Independent recovery.** Saved default cursors can be restored from the app or the CLI, even if the app cannot open.
+- **Clear diagnostics.** Conflicting pointer settings and automatic reapplication failures are reported, with a reason when reapplication pauses.
+
+## Install
+
+Releases support Apple Silicon only.
+
+### Homebrew
+
+```bash
+brew install --cask narcissus-tazetta/tap/curstyle
+```
+
+### Manual installation
+
+1. Download the latest `Curstyle-macos-vX.Y.Z.dmg` from [Releases](https://github.com/Narcissus-tazetta/Curstyle/releases).
+2. Open the DMG and move `Curstyle.app` to **Applications**.
+3. Launch Curstyle from Applications.
+
+The commands in this README use `$HOME/Applications/Curstyle.app`. If you installed to `/Applications`, use `/Applications/Curstyle.app` instead.
+
+### First-launch warning
+
+Curstyle is distributed without Apple notarization, so macOS may show a security warning. After attempting to launch it, open **System Settings → Privacy & Security**, choose **Open Anyway** for Curstyle, and follow the prompts.
+
+### Updating
+
+Curstyle asks on its second launch whether to check for updates automatically. You can change this, or check manually, under **Settings → Updates** or from the menu bar. Each update's signature is verified before it replaces the app. Homebrew installations can also use `brew upgrade --cask curstyle`.
+
 ## Build and run
 
 You need Xcode with a Swift 6 toolchain. The deployment target is macOS 14, but this does not guarantee compatibility with every subsequent OS release. Intel Macs have not been tested.
@@ -31,7 +63,7 @@ cd Curstyle
 open "$HOME/Applications/Curstyle.app"
 ```
 
-The script builds the app and CLI in release mode, applies an ad-hoc signature, and installs the bundle at `~/Applications/Curstyle.app`. It replaces any existing Curstyle app at that location.
+The script builds the app and CLI in release mode, applies an ad-hoc signature, and installs the bundle at `~/Applications/Curstyle.app`. It replaces any existing Curstyle app at that location. Update checks are disabled in apps built this way.
 
 ## Getting started
 
@@ -162,7 +194,7 @@ Curstyle is a Swift Package Manager project.
 | `Sources/curstyle` | CLI and background helper |
 | `Sources/curstyle-probe` / `Sources/curstyle-overlay-probe` | Tools for investigating private APIs and rendering behavior |
 | `Tests/CursorKitTests` | Cursor import, animation conversion, and localization tests |
-| `Support` / `make-app.sh` | App bundle configuration and assembly |
+| `Support` / `make-app.sh` / `scripts` | App bundle configuration, assembly, and release packaging |
 
 ```bash
 swift build

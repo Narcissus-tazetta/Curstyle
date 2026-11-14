@@ -14,3 +14,12 @@ docs/PHASE2.md
 docs/PHASE3.md
 docs/PHASE4.md
 docs/PHASE5.md
+
+# リリース用の生成物と秘密鍵
+dist/
+*.pem
+
+# 公開しない docs
+docs/COMPARISON.md
+docs/RELEASE.md
+docs/benchmarks/

@@ -60,7 +60,7 @@ private struct ThemeRow: View {
                     .fill(Color(white: 0.88))
                 if let rep = CursorRoles.representative(of: entry.theme) {
                     let zoom = min(1, 22 / max(rep.size.width, rep.size.height))
-                    CursorPreview(rep: rep, zoom: zoom, animates: false)
+                    CursorPreview(rep: rep, zoom: zoom)
                 }
             }
             .frame(width: 30, height: 30)

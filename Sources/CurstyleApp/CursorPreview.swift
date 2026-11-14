@@ -25,7 +25,6 @@ struct CursorPreview: View {
     /// 1pt を何倍で描くか。
     var zoom: CGFloat = 1
     var showsHotspot = false
-    var animates = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -33,7 +32,7 @@ struct CursorPreview: View {
         let (frames, scale) = FrameCache.shared.frames(for: rep)
         let size = CGSize(width: rep.size.width * zoom, height: rep.size.height * zoom)
         Group {
-            if frames.count > 1, animates, !reduceMotion, rep.frameDuration > 0 {
+            if frames.count > 1, !reduceMotion, rep.frameDuration > 0 {
                 TimelineView(.periodic(from: .now, by: rep.frameDuration)) { context in
                     let index =
                         Int(context.date.timeIntervalSinceReferenceDate / rep.frameDuration) % frames.count

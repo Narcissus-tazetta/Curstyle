@@ -6,6 +6,7 @@ import SwiftUI
 struct CurstyleApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model: AppModel
+    @State private var updates = UpdateService()
     @AppStorage(L10n.preferenceKey, store: L10n.preferences) private var language = ""
 
     init() {
@@ -24,6 +25,7 @@ struct CurstyleApp: App {
     var body: some Scene {
         Window("Curstyle", id: "main") {
             RootView(model: model)
+                .environment(updates)
                 .environment(\.locale, Locale(identifier: L10n.language))
                 .id(language)
                 .onAppear {
@@ -44,6 +46,7 @@ struct CurstyleApp: App {
 
         MenuBarExtra {
             MenuBarContent(model: model)
+                .environment(updates)
                 .environment(\.locale, Locale(identifier: L10n.language))
                 .id(language)
         } label: {
@@ -81,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct MenuBarContent: View {
     let model: AppModel
+    @Environment(UpdateService.self) private var updates
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -109,6 +113,8 @@ struct MenuBarContent: View {
             NSApp.activate()
         }
         .keyboardShortcut(",")
+        Button(L10n.text("アップデートを確認…")) { updates.checkForUpdates() }
+            .disabled(!updates.isAvailable)
         Button(L10n.text("終了")) { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }

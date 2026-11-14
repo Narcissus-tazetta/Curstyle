@@ -9,6 +9,9 @@ let package = Package(
         .library(name: "CursorKit", targets: ["CursorKit"]),
         .executable(name: "curstyle", targets: ["curstyle"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.10.0")
+    ],
     targets: [
         .target(
             name: "CCursorBridge",
@@ -27,7 +30,10 @@ let package = Package(
         // 名前を Curstyle にしないのは、大文字小文字を区別しないファイルシステムで curstyle と衝突するため。
         .executableTarget(
             name: "CurstyleApp",
-            dependencies: ["CursorKit"],
+            dependencies: [
+                "CursorKit",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(

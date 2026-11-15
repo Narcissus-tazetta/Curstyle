@@ -201,6 +201,10 @@ swift build
 swift test
 ```
 
+## Support
+
+Curstyle is free and open source. If you find it useful, you can support development on [Ko-fi](https://ko-fi.com/prason). Donations are appreciated but never required.
+
 ## License
 
 Curstyle's source code is licensed under the [MIT License](LICENSE). Cursor themes and images imported from other sources have their own terms; check their original distribution pages.

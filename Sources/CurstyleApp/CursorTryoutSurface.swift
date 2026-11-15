@@ -147,13 +147,15 @@ private struct Click: Equatable {
 struct TryoutSurface: View {
     let reps: [TryoutRole: CursorRep]
     let dark: Bool
+    var extras: [SampleItem] = []
+    var compact = false
 
     @State private var pointer: CGPoint?
     @State private var regions: [TryoutRegion] = []
     @State private var click: Click?
 
     /// 倍率を動かしている間に下のスライダーが動かないよう、高さは固定にする(大きなカーソルは端で切れる)。
-    private let height: CGFloat = 280
+    private var height: CGFloat { compact ? 230 : 280 }
 
     private func role(at point: CGPoint) -> TryoutRole {
         regions.last { $0.rect.contains(point) }?.role ?? .arrow
@@ -162,7 +164,7 @@ struct TryoutSurface: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack(alignment: .topLeading) {
-                TryoutSamplePage(dark: dark)
+                TryoutSamplePage(dark: dark, extras: extras, compact: compact)
                 PointerTracker(
                     cursorAt: { point in
                         let role = role(at: point)
@@ -269,6 +271,8 @@ private struct ClickMarker: View {
 /// 明るさはアプリの外観と独立。文字・リンク・ボタンの色も背景ごとに決めて、どちらでも読める。
 private struct TryoutSamplePage: View, Equatable {
     let dark: Bool
+    let extras: [SampleItem]
+    let compact: Bool
 
     var body: some View {
         let ink = dark ? Color(white: 0.94) : Color(white: 0.1)
@@ -276,10 +280,12 @@ private struct TryoutSamplePage: View, Equatable {
         let link = dark ? Color(red: 0.45, green: 0.72, blue: 1) : Color(red: 0, green: 0.36, blue: 0.86)
         ZStack(alignment: .topLeading) {
             Rectangle().fill(dark ? Color(white: 0.13) : Color(white: 0.97))
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L10n.text("サンプルページ"))
-                    .font(.headline)
-                    .foregroundStyle(ink)
+            VStack(alignment: .leading, spacing: compact ? 10 : 14) {
+                if !compact {
+                    Text(L10n.text("サンプルページ"))
+                        .font(.headline)
+                        .foregroundStyle(ink)
+                }
                 Text(L10n.text("文字の上ではテキスト用のカーソルになります。\nThe quick brown fox jumps over the lazy dog. 0123456789"))
                     .font(.callout)
                     .foregroundStyle(secondary)
@@ -305,15 +311,36 @@ private struct TryoutSamplePage: View, Equatable {
                             Circle().fill(Color.red.opacity(0.5)).padding(10)
                             Circle().fill(Color.red).padding(20)
                         }
-                        .frame(width: 60, height: 60)
+                        .frame(width: compact ? 44 : 60, height: compact ? 44 : 60)
                         .tryoutRegion(.arrow, isTarget: true)
                         Text(L10n.text("的"))
                             .font(.caption)
                             .foregroundStyle(secondary)
                     }
                 }
+                if !extras.isEmpty {
+                    FlowLayout(spacing: 10) {
+                        ForEach(extras) { item in
+                            switch item.kind {
+                            case .text:
+                                Text(item.label)
+                                    .font(.callout)
+                                    .foregroundStyle(secondary)
+                                    .tryoutRegion(.ibeam)
+                            case .button:
+                                Text(item.label)
+                                    .font(.callout.weight(.medium))
+                                    .foregroundStyle(dark ? Color(white: 0.08) : .white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 6)
+                                    .background(link, in: Capsule())
+                                    .tryoutRegion(.pointingHand)
+                            }
+                        }
+                    }
+                }
             }
-            .padding(20)
+            .padding(compact ? 14 : 20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }

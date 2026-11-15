@@ -8,13 +8,18 @@ import SwiftUI
 final class FrameCache {
     static let shared = FrameCache()
     private var frames: [ObjectIdentifier: (source: CGImage, frameCount: Int, frames: [CGImage], scale: Int)] = [:]
+    private var order: [ObjectIdentifier] = []
+    /// 試用で倍率を動かすたびに新しい画像ができるので、保持数に上限を置く。
+    private let limit = 96
 
     func frames(for rep: CursorRep) -> (frames: [CGImage], scale: Int) {
         guard let source = rep.images.max(by: { $0.width < $1.width }) else { return ([], 1) }
         let key = ObjectIdentifier(source)
         if let hit = frames[key], hit.frameCount == rep.frameCount { return (hit.frames, hit.scale) }
         let made = rep.previewFrames()
+        if frames[key] == nil { order.append(key) }
         frames[key] = (source, rep.frameCount, made.frames, made.scale)
+        if order.count > limit { frames[order.removeFirst()] = nil }
         return made
     }
 }

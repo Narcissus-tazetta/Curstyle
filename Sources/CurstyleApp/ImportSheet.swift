@@ -1,15 +1,16 @@
 import CursorKit
 import SwiftUI
 
-/// 取り込む前に、役割の対応・取り込まないファイル・大きさを見せて確かめてもらう。
+/// 取り込む前に、役割の対応・取り込まないファイルを見せ、試用エリアで見え方と大きさを確かめてもらう。
 struct ImportSheet: View {
     let model: AppModel
     let source: URL
 
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
-    @State private var pixelsPerPoint = 1
     @State private var result: Result<(theme: CursorTheme, skipped: [String], adjustments: [String]), Error>?
+    @State private var session: TryoutSession?
+    @State private var saveError: String?
 
     init(model: AppModel, source: URL) {
         self.model = model
@@ -23,11 +24,11 @@ struct ImportSheet: View {
 
     private var isCape: Bool { source.pathExtension.lowercased() == "cape" }
 
-    /// 大きさを選べるのは Windows のフォルダだけ(ほかは pt が決まっている)。
-    private var choosesScale: Bool { !isCurstyleTheme && !isCape }
+    /// Windows のフォルダだけ、pt が決まっていないので 1 px = 1 pt で読み込む(大きさは試用画面の倍率で決める)。
+    private var isWindowsFolder: Bool { !isCurstyleTheme && !isCape }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
             HStack(spacing: 12) {
                 IconTile(systemImage: "square.and.arrow.down", tint: .blue, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
@@ -38,98 +39,86 @@ struct ImportSheet: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
+                Spacer()
             }
-
-            Form {
-                TextField(L10n.text("名前"), text: $name)
-                if choosesScale {
-                    Picker(L10n.text("大きさ"), selection: $pixelsPerPoint) {
-                        Text(L10n.text("標準(1 px = 1 pt)")).tag(1)
-                        Text(L10n.text("小さめ(2 px = 1 pt)")).tag(2)
+            .padding(20)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 12) {
+                        Text(L10n.text("名前"))
+                        TextField(L10n.text("名前"), text: $name)
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
                     }
-                    .pickerStyle(.radioGroup)
-                    Text(
-                        L10n.text(
-                            "Windows の 32 px のカーソルは「標準」で 32 pt になります。「小さめ」は Retina で画素どおりの大きさですが、macOS の標準より小さく見えます。")
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    content
                 }
+                .padding(20)
             }
-            .formStyle(.grouped)
-            .scrollDisabled(true)
-            .frame(height: choosesScale ? 150 : 60)
-
-            preview
-                .frame(height: 220)
-
+            Divider()
             HStack {
+                if let saveError {
+                    Label(L10n.text("追加できませんでした: {0}", saveError), systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(2)
+                        .textSelection(.enabled)
+                }
                 Spacer()
                 Button(L10n.text("キャンセル"), role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(L10n.text("ライブラリに追加")) {
-                    guard case .success(let parsed)? = result else { return }
-                    var theme = parsed.theme
-                    theme.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    model.add(theme)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canAdd)
+                Button(L10n.text("ライブラリに追加"), action: add)
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canAdd)
             }
+            .padding(20)
         }
-        .padding(20)
-        .frame(width: 560)
-        .task(id: pixelsPerPoint) { parse() }
+        .frame(width: 640, height: 560)
+        .task { parse() }
     }
 
     private var canAdd: Bool {
-        guard case .success? = result else { return false }
-        return !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard case .success? = result, let session else { return false }
+        return session.isCurrent && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func add() {
+        guard let session else { return }
+        var theme = session.result
+        theme.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            try model.add(theme)
+            dismiss()
+        } catch {
+            saveError = "\(error)"
+        }
     }
 
     @ViewBuilder
-    private var preview: some View {
+    private var content: some View {
         switch result {
         case .success(let parsed)?:
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)], spacing: 8) {
-                        ForEach(parsed.theme.cursors.keys.sorted(by: tileOrder), id: \.self) { key in
-                            let rep = parsed.theme.cursors[key]!
-                            VStack(spacing: 4) {
-                                ZStack {
-                                    BackdropView(backdrop: model.backdrop, cornerRadius: 8)
-                                    CursorPreview(rep: rep, zoom: min(1.5, 40 / max(rep.size.width, rep.size.height)))
-                                }
-                                .frame(height: 52)
-                                Text(CursorRoles.title(for: key))
-                                    .font(.caption2)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
-                    .padding(10)
-                    .cardBackground()
-                    ForEach(parsed.adjustments, id: \.self) { adjustment in
-                        Label(adjustment, systemImage: "info.circle")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if !parsed.skipped.isEmpty {
-                        Label(
-                            L10n.text(
-                                "取り込まないもの: {0}", String(describing: parsed.skipped.sorted().joined(separator: ", "))),
-                            systemImage: "info.circle"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
+            if let session {
+                ThemeTryoutView(
+                    session: session,
+                    note: isWindowsFolder ? L10n.text("Windows のカーソルは 1 px = 1 pt の大きさで読み込みます。") : nil)
+                tiles(session.result)
+            }
+            ForEach(parsed.adjustments, id: \.self) { adjustment in
+                Label(adjustment, systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !parsed.skipped.isEmpty {
+                Label(
+                    L10n.text("取り込まないもの: {0}", String(describing: parsed.skipped.sorted().joined(separator: ", "))),
+                    systemImage: "info.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         case .failure(let error)?:
             VStack(spacing: 8) {
@@ -143,11 +132,31 @@ struct ImportSheet: View {
                     .multilineTextAlignment(.center)
                     .textSelection(.enabled)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 200)
             .cardBackground()
         case nil:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            ProgressView().frame(maxWidth: .infinity, minHeight: 200)
         }
+    }
+
+    private func tiles(_ theme: CursorTheme) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)], spacing: 8) {
+            ForEach(theme.cursors.keys.sorted(by: tileOrder), id: \.self) { key in
+                let rep = theme.cursors[key]!
+                VStack(spacing: 4) {
+                    ZStack {
+                        BackdropView(backdrop: model.backdrop, cornerRadius: 8)
+                        CursorPreview(rep: rep, zoom: min(1.5, 40 / max(rep.size.width, rep.size.height)))
+                    }
+                    .frame(height: 52)
+                    Text(CursorRoles.title(for: key))
+                        .font(.caption2)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(10)
+        .cardBackground()
     }
 
     private func tileOrder(_ a: String, _ b: String) -> Bool {
@@ -159,10 +168,11 @@ struct ImportSheet: View {
 
     private func parse() {
         do {
-            let parsed = try CursorTheme.importSource(source, name: nil, pixelsPerPoint: pixelsPerPoint)
+            let parsed = try CursorTheme.importSource(source, name: nil, pixelsPerPoint: 1)
             // 適用時に初めて弾かれないよう、取り込む前に同じ検証を通す。
             _ = try parsed.theme.resolvedPlan()
-            if !choosesScale { name = parsed.theme.name }
+            if !isWindowsFolder { name = parsed.theme.name }
+            session = TryoutSession(base: parsed.theme)
             result = .success(parsed)
         } catch {
             result = .failure(error)

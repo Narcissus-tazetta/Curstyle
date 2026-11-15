@@ -10,7 +10,7 @@ struct ThemeDetailView: View {
     @State private var confirmsDelete = false
     @State private var editingKey: EditingKey?
     @State private var editsSpeed = false
-    @State private var editsSize = false
+    @State private var triesOut = false
     @FocusState private var nameFocused: Bool
 
     private var isActive: Bool { model.isActive(entry) }
@@ -25,6 +25,7 @@ struct ThemeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
+                tryoutCard
                 ForEach(CursorRoles.grouped(Array(entry.theme.cursors.keys)), id: \.group.id) { section in
                     VStack(alignment: .leading, spacing: 10) {
                         Text(section.group.title)
@@ -74,8 +75,8 @@ struct ThemeDetailView: View {
         .sheet(item: $editingKey) { editing in
             CursorEditorSheet(model: model, entry: entry, key: editing.key)
         }
-        .sheet(isPresented: $editsSize) {
-            CursorSizeSheet(model: model, entry: entry)
+        .sheet(isPresented: $triesOut) {
+            ThemeTryoutSheet(model: model, entry: entry)
         }
         .sheet(isPresented: $editsSpeed) {
             AnimationSpeedSheet(model: model, entry: entry)
@@ -186,7 +187,7 @@ struct ThemeDetailView: View {
                     }
                     Spacer()
                     Menu {
-                        Button(L10n.text("カーソルの大きさを一括で変える…")) { editsSize = true }
+                        Button(L10n.text("試して整える…")) { triesOut = true }
                         if maxFrames ?? 1 > 1 {
                             Button(L10n.text("アニメの速さを一括で変える…")) { editsSpeed = true }
                         }
@@ -208,6 +209,28 @@ struct ThemeDetailView: View {
         }
         .padding(16)
         .cardBackground(cornerRadius: 16)
+    }
+
+    /// 適用する前に試せることを、ツールバーではなく本文で目立たせる。
+    private var tryoutCard: some View {
+        HStack(spacing: 12) {
+            IconTile(systemImage: "wand.and.stars", tint: .purple, size: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.text("適用する前に試してみる")).font(.headline)
+                Text(L10n.text("文章やリンクの上で動かして、見え方・大きさ・クリック位置を確かめて整えられます。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 12)
+            Button(L10n.text("試して整える…")) { triesOut = true }
+                .buttonStyle(.borderedProminent)
+                .tint(.purple)
+                .controlSize(.large)
+                .disabled(model.busyMessage != nil)
+        }
+        .padding(14)
+        .cardBackground(cornerRadius: 14)
     }
 
     private var maxFrames: Int? { entry.theme.cursors.values.map(\.frameCount).max() }

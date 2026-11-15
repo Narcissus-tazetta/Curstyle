@@ -190,27 +190,28 @@ final class AppModel {
 
     // MARK: ライブラリ
 
-    func add(_ theme: CursorTheme) {
-        do {
-            let entry = try library.add(theme)
-            reload()
-            selection = .theme(entry.id)
-            show(.success, L10n.text("{0} を追加しました", String(describing: theme.name)))
-        } catch {
-            show(.failure, L10n.text("追加できませんでした"), "\(error)")
-        }
+    /// 失敗は呼び出し元の画面で見せるので、バナーは出さずに投げ直す(取り込み画面は失敗時も閉じない)。
+    func add(_ theme: CursorTheme) throws {
+        let entry = try library.add(theme)
+        reload()
+        selection = .theme(entry.id)
+        show(.success, L10n.text("{0} を追加しました", String(describing: theme.name)))
     }
 
     /// 適用中のテーマを編集しても、カーソルは書き換えずライブラリにだけ保存する(「変更を適用」で反映)。
+    func save(_ entry: ThemeLibrary.Entry, with theme: CursorTheme) throws {
+        try library.update(entry, with: theme)
+        reload()
+        show(
+            .success, L10n.text("{0} を保存しました", String(describing: theme.name)),
+            hasPendingChanges(self.entry(id: entry.id) ?? entry)
+                ? L10n.text("画面のカーソルはまだ前の内容です。「変更を適用」で反映します。") : nil)
+    }
+
     @discardableResult
     func update(_ entry: ThemeLibrary.Entry, with theme: CursorTheme) -> Bool {
         do {
-            try library.update(entry, with: theme)
-            reload()
-            show(
-                .success, L10n.text("{0} を保存しました", String(describing: theme.name)),
-                hasPendingChanges(self.entry(id: entry.id) ?? entry)
-                    ? L10n.text("画面のカーソルはまだ前の内容です。「変更を適用」で反映します。") : nil)
+            try save(entry, with: theme)
             return true
         } catch {
             show(.failure, L10n.text("保存できませんでした"), "\(error)")

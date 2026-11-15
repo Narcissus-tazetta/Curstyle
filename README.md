@@ -71,7 +71,7 @@ Curstyle supports English and Japanese. With no saved language preference, it us
 
 1. Download a cursor theme and extract its archive if needed.
 2. Drag the theme folder or `.cape` file into the app window. You can also use **+** (⌘O) or drop it onto the Dock icon.
-3. Check the cursor roles, size, and any skipped files, then choose **Add to Library**.
+3. Check the cursor roles and any skipped files, try the theme in the sample area (move the cursor over text and links, click the target, and adjust the size with the slider), then choose **Add to Library**.
 4. Select the theme and choose **Apply This Theme**.
 
 To undo the change, choose **Restore Defaults** in the theme view, at the bottom of the sidebar, or in the menu bar.
@@ -91,7 +91,7 @@ Animations with more than 24 frames are automatically reduced to 24 frames durin
 
 ### Editing cursors
 
-Click a cursor tile to open its editor. Set the hotspot (the click location) numerically, or click and drag in the preview. You can adjust animation speed per cursor, or use the theme's **…** menu to change the size or animation speed for the whole theme.
+Click a cursor tile to open its editor. Set the hotspot (the click location) numerically, or click and drag in the preview. You can adjust animation speed per cursor, or use **Try and adjust…** (also in the theme's **…** menu) to try the theme on a sample page and change the size of the whole theme. The **…** menu also changes the animation speed for the whole theme.
 
 Saving edits to an active theme does not immediately change the system cursor. Choose **Apply Changes** to apply them.
 

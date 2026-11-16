@@ -10,27 +10,15 @@ enum SampleAppearance { case automatic, light, dark }
 struct ThemeTryoutView: View {
     let session: TryoutSession
     var note: String?
-    /// nil なら背景の切り替えを自前で持つ。比較シートは全エリア共通の1つを渡す。
+    /// nil なら背景の切り替えを自前で持つ。
     var appearance: Binding<SampleAppearance>?
     var compact = false
 
     @State private var ownAppearance = SampleAppearance.automatic
     @State private var extras: [SampleItem] = []
-    @State private var draftKind = SampleItem.Kind.text
-    @State private var draftLabel = ""
     @Environment(\.colorScheme) private var colorScheme
 
     private var sampleAppearance: Binding<SampleAppearance> { appearance ?? $ownAppearance }
-
-    private var darkSample: Bool {
-        switch sampleAppearance.wrappedValue {
-        case .automatic: colorScheme == .dark
-        case .light: false
-        case .dark: true
-        }
-    }
-    /// 試用は 1 pt = 画面の 1 pt で描く。システムのポインターサイズが標準でないと、適用後の大きさは一致しない可能性がある。
-    private let pointerScale = SystemPointer.sizeScale
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 12) {
@@ -41,29 +29,58 @@ struct ThemeTryoutView: View {
                     AppearancePicker(selection: sampleAppearance)
                 }
             }
-            TryoutSurface(reps: session.reps, dark: darkSample, extras: extras, compact: compact)
+            TryoutSurface(
+                reps: session.reps, dark: sampleAppearance.wrappedValue.isDark(colorScheme), extras: extras,
+                compact: compact)
             if !compact {
                 Text(L10n.text("このエリアで動かして試せます。ここではシステムのカーソルは変更されません。"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            extrasEditor
-            sizeControls
-            ForEach(TryoutRole.allCases.filter { session.reps[$0] == nil }, id: \.self) { role in
-                Label(
-                    L10n.text("{0}: テーマに含まれていません。適用時は標準を使います", role.title),
-                    systemImage: "exclamationmark.circle"
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            }
+            ExtrasEditor(extras: $extras)
+            SizeControls(session: session, note: note)
+            MissingRoles(session: session, roles: TryoutRole.basic)
         }
     }
+}
 
-    /// サンプルページにテキスト/ボタンを足して、自分の使う場面に近づけて試す。
-    private var extrasEditor: some View {
+extension SampleAppearance {
+    func isDark(_ colorScheme: ColorScheme) -> Bool {
+        switch self {
+        case .automatic: colorScheme == .dark
+        case .light: false
+        case .dark: true
+        }
+    }
+}
+
+/// テーマに含まれない役割の注意書き。
+struct MissingRoles: View {
+    let session: TryoutSession
+    let roles: [TryoutRole]
+
+    var body: some View {
+        ForEach(roles.filter { session.reps[$0] == nil }, id: \.self) { role in
+            Label(
+                L10n.text("{0}: テーマに含まれていません。適用時は標準を使います", role.title),
+                systemImage: "exclamationmark.circle"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// サンプルページにテキスト/ボタンを足して、自分の使う場面に近づけて試す。
+struct ExtrasEditor: View {
+    @Binding var extras: [SampleItem]
+
+    @State private var draftKind = SampleItem.Kind.text
+    @State private var draftLabel = ""
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Picker(L10n.text("追加する種類"), selection: $draftKind) {
@@ -110,27 +127,50 @@ struct ThemeTryoutView: View {
         extras.append(SampleItem(kind: draftKind, label: label))
         draftLabel = ""
     }
+}
 
-    private var sizeControls: some View {
+/// 倍率スライダーと、いまの大きさ・保存できない理由の表示。
+struct SizeControls: View {
+    let session: TryoutSession
+    var note: String?
+    /// 列が狭いときは、スライダーと値だけにして「元に戻す」はアイコンにする。
+    var narrow = false
+
+    /// 試用は 1 pt = 画面の 1 pt で描く。システムのポインターサイズが標準でないと、適用後の大きさは一致しない可能性がある。
+    private let pointerScale = SystemPointer.sizeScale
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Text(L10n.text("大きさ"))
+            HStack(spacing: narrow ? 6 : 12) {
+                if !narrow { Text(L10n.text("大きさ")) }
                 Slider(
                     value: Binding(get: { session.factor }, set: { session.setFactor($0) }),
                     in: 0.1...session.maxFactor, step: 0.1
                 ) {
                     Text(L10n.text("大きさ"))
                 } minimumValueLabel: {
-                    Text("0.1×")
+                    if !narrow { Text("0.1×") }
                 } maximumValueLabel: {
-                    Text(String(format: "%.1f×", session.maxFactor))
+                    if !narrow { Text(String(format: "%.1f×", session.maxFactor)) }
                 }
                 .labelsHidden()
                 Text(String(format: L10n.text("%.1f 倍"), session.factor))
                     .font(.callout.monospacedDigit().weight(.medium))
-                    .frame(width: 56, alignment: .trailing)
-                Button(L10n.text("元の大きさに戻す")) { session.reset() }
+                    .frame(width: narrow ? 48 : 56, alignment: .trailing)
+                if narrow {
+                    Button {
+                        session.reset()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .accessibilityLabel(L10n.text("元の大きさに戻す"))
+                    }
+                    .buttonStyle(.borderless)
                     .disabled(session.factor == 1)
+                    .iconHelp(L10n.text("元の大きさに戻す"))
+                } else {
+                    Button(L10n.text("元の大きさに戻す")) { session.reset() }
+                        .disabled(session.factor == 1)
+                }
             }
             HStack(spacing: 6) {
                 Text(sizeSummary)
@@ -189,38 +229,41 @@ struct ThemeTryoutView: View {
     }
 }
 
-/// 1・左右2・4分割で複数のテーマを並べて比較する。各エリアは別々のテーマ・倍率・追加テキスト/ボタンを持つ。
+/// 最初は1つのカーソルを試す。右上の「＋」から比較するカーソルを最大4つまで足すと、同じサンプルページが
+/// 薄い線で区切られた列になり、ポインターのいる列のカーソルに切り替わる。地図やテキスト・ボタンも＋から足せる。
 struct ThemeTryoutSheet: View {
     let model: AppModel
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var panes: [Pane]
-    @State private var layout = Split.single
     @State private var appearance = SampleAppearance.automatic
+    @State private var addons: Set<Addon> = []
+    @State private var extras: [SampleItem] = []
     /// シートは親ウィンドウより大きくできず、はみ出すと端が切れる。開いた時点のウィンドウに収める。
     private let available: CGSize
 
-    enum Split: Int, CaseIterable {
-        case single = 1, pair = 2, quad = 4
+    private static let maxPanes = 4
 
-        var systemImage: String {
-            switch self {
-            case .single: "rectangle"
-            case .pair: "rectangle.split.2x1"
-            case .quad: "rectangle.split.2x2"
-            }
-        }
+    enum Addon: CaseIterable {
+        case map, items
 
         var title: String {
             switch self {
-            case .single: L10n.text("1つ")
-            case .pair: L10n.text("左右に2つ")
-            case .quad: L10n.text("4分割")
+            case .map: L10n.text("地図を開いたとき")
+            case .items: L10n.text("テキスト・ボタンを足す")
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .map: "map"
+            case .items: "textformat"
             }
         }
     }
 
-    /// 1エリア分の状態。テーマを替えると倍率は基準から作り直す(保存していない調整は破棄される)。
+    /// 1列分の状態。テーマを替えると倍率は基準から作り直す(保存していない調整は破棄される)。
     @MainActor
     @Observable
     final class Pane: Identifiable {
@@ -244,13 +287,30 @@ struct ThemeTryoutSheet: View {
     init(model: AppModel, entry: ThemeLibrary.Entry) {
         self.model = model
         available = NSApp.keyWindow?.contentLayoutRect.size ?? CGSize(width: 1000, height: 760)
-        // 追加するエリアの初期テーマは、まだ出ていないテーマから順に選ぶ。
-        let others = model.entries.filter { $0.id != entry.id }
-        let initial = [entry] + others.prefix(3)
-        _panes = State(initialValue: (0..<4).map { Pane(entry: initial[$0 % initial.count]) })
+        _panes = State(initialValue: [Pane(entry: entry)])
     }
 
-    private var visible: ArraySlice<Pane> { panes.prefix(layout.rawValue) }
+    private func binding(for addon: Addon) -> Binding<Bool> {
+        Binding(
+            get: { addons.contains(addon) },
+            set: { isOn in
+                if isOn { addons.insert(addon) } else { addons.remove(addon) }
+            })
+    }
+
+    private var usedRoles: [TryoutRole] {
+        addons.contains(.map) ? TryoutRole.allCases : TryoutRole.basic
+    }
+
+    /// 追加する列の初期テーマは、まだ出ていないテーマから順に選ぶ(全部出ていれば先頭)。
+    private func addPane() {
+        guard panes.count < Self.maxPanes else { return }
+        let shown = Set(panes.map(\.entry.id))
+        guard let entry = model.entries.first(where: { !shown.contains($0.id) }) ?? model.entries.first else {
+            return
+        }
+        panes.append(Pane(entry: entry))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -258,35 +318,42 @@ struct ThemeTryoutSheet: View {
                 IconTile(systemImage: "wand.and.stars", tint: .purple, size: 34)
                 Text(L10n.text("テーマを試して整える")).font(.title3.weight(.semibold))
                 Spacer()
-                Picker(L10n.text("分割"), selection: $layout.animation(Motion.quick)) {
-                    ForEach(Split.allCases, id: \.self) { layout in
-                        Image(systemName: layout.systemImage)
-                            .accessibilityLabel(layout.title)
-                            .help(layout.title)
-                            .tag(layout)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 130)
-                .help(L10n.text("エリアの分割(1つ・左右に2つ・4分割)"))
                 AppearancePicker(selection: $appearance)
             }
             .padding(20)
             Divider()
             ScrollView {
-                let columns = Array(
-                    repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
-                    count: layout == .single ? 1 : 2)
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
-                    ForEach(visible) { pane in
-                        PaneView(
-                            model: model, pane: pane, appearance: $appearance,
-                            compact: layout != .single)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(panes) { pane in
+                            PaneHeader(
+                                model: model, pane: pane, showsStatus: panes.count <= 2,
+                                addMenu: pane.id == panes.last?.id ? AnyView(addMenu) : nil,
+                                remove: panes.count > 1 ? { withAnimation(Motion.quick) { remove(pane) } } : nil
+                            )
+                            .padding(.horizontal, 8)
+                        }
+                    }
+                    TryoutSurface(
+                        reps: panes[0].session.reps, others: panes.dropFirst().map(\.session.reps),
+                        dark: appearance.isDark(colorScheme), extras: extras, compact: true,
+                        showsMap: addons.contains(.map))
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(panes) { pane in
+                            VStack(alignment: .leading, spacing: 8) {
+                                SizeControls(session: pane.session, narrow: panes.count > 2)
+                                MissingRoles(session: pane.session, roles: usedRoles)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .padding(.horizontal, 8)
+                        }
+                    }
+                    if addons.contains(.items) {
+                        ExtrasEditor(extras: $extras)
+                            .padding(12)
+                            .cardBackground()
                     }
                 }
-                .frame(maxWidth: layout == .single ? 640 : .infinity)
-                .frame(maxWidth: .infinity)
                 .padding(20)
             }
             Divider()
@@ -296,25 +363,73 @@ struct ThemeTryoutSheet: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 Spacer()
+                Button(L10n.text("保存")) { panes.filter(isSavable).forEach(save) }
+                    .disabled(!panes.contains(where: isSavable))
                 Button(L10n.text("閉じる")) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                     .buttonStyle(.borderedProminent)
             }
             .padding(20)
         }
-        // 分割を切り替えてもシートの大きさは変わらない(開いた後に広げても、中身がはみ出して切れる)。
+        // 項目を足してもシートの大きさは変わらない(開いた後に広げても、中身がはみ出して切れる)。
         .frame(width: min(1000, available.width - 40), height: min(760, available.height - 40))
+    }
+
+    /// 見出しの右端の「＋」。比較するカーソル・地図・テキストとボタンを足す。
+    private var addMenu: some View {
+        Menu {
+            Button {
+                withAnimation(Motion.quick) { addPane() }
+            } label: {
+                Label(
+                    L10n.text("カーソルを足して比較する({0}/{1})", String(panes.count), String(Self.maxPanes)),
+                    systemImage: "rectangle.split.2x1")
+            }
+            .disabled(panes.count >= Self.maxPanes)
+            Divider()
+            ForEach(Addon.allCases, id: \.self) { addon in
+                Toggle(isOn: binding(for: addon).animation(Motion.quick)) {
+                    Label(addon.title, systemImage: addon.systemImage)
+                }
+            }
+        } label: {
+            Image(systemName: "plus.circle")
+                .accessibilityLabel(L10n.text("試す項目を足す"))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .iconHelp(L10n.text("試す項目を足す(比較するカーソル・地図・テキストとボタン)"))
+    }
+
+    private func isSavable(_ pane: Pane) -> Bool { pane.session.isModified && pane.session.isCurrent }
+
+    private func remove(_ pane: Pane) {
+        guard panes.count > 1 else { return }
+        panes.removeAll { $0.id == pane.id }
+    }
+
+    private func save(_ pane: Pane) {
+        do {
+            try model.save(pane.entry, with: pane.session.result)
+            // 保存した内容を新しい基準にして、倍率を 1 に戻す(続けて調整・再保存できる)。
+            pane.show(model.entry(id: pane.entry.id) ?? pane.entry)
+        } catch {
+            pane.saveError = "\(error)"
+        }
     }
 }
 
-private struct PaneView: View {
+/// 1列の見出し: テーマの選択・保存・列を外す。
+private struct PaneHeader: View {
     let model: AppModel
     let pane: ThemeTryoutSheet.Pane
-    @Binding var appearance: SampleAppearance
-    let compact: Bool
+    let showsStatus: Bool
+    let addMenu: AnyView?
+    let remove: (() -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Menu {
                     ForEach(model.entries) { candidate in
@@ -331,14 +446,21 @@ private struct PaneView: View {
                 } label: {
                     Text(pane.entry.theme.name).lineLimit(1).truncationMode(.middle)
                 }
-                .fixedSize()
-                .help(L10n.text("このエリアで試すテーマ"))
-                if model.isActive(pane.entry) {
+                .help(L10n.text("この列で試すテーマ"))
+                if showsStatus, model.isActive(pane.entry) {
                     Text(L10n.text("適用中")).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
-                Button(L10n.text("保存")) { save() }
-                    .disabled(!(pane.session.isModified && pane.session.isCurrent))
+                if let addMenu { addMenu }
+                if let remove {
+                    Button(action: remove) {
+                        Image(systemName: "xmark.circle.fill")
+                            .accessibilityLabel(L10n.text("この列を外す"))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .iconHelp(L10n.text("この列を外す"))
+                }
             }
             if let error = pane.saveError {
                 Label(error, systemImage: "exclamationmark.triangle")
@@ -347,21 +469,8 @@ private struct PaneView: View {
                     .lineLimit(2)
                     .textSelection(.enabled)
             }
-            ThemeTryoutView(session: pane.session, appearance: $appearance, compact: compact)
-                .id(pane.id)
         }
-        .padding(12)
-        .cardBackground()
-    }
-
-    private func save() {
-        do {
-            try model.save(pane.entry, with: pane.session.result)
-            // 保存した内容を新しい基準にして、倍率を 1 に戻す(続けて調整・再保存できる)。
-            pane.show(model.entry(id: pane.entry.id) ?? pane.entry)
-        } catch {
-            pane.saveError = "\(error)"
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

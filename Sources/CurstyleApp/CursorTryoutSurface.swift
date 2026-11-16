@@ -37,9 +37,10 @@ extension View {
 /// 透明カーソルはカーソル矩形・tracking area の仕組みで出入りに従って AppKit が戻すので、
 /// 隠す/戻すの対を自前で管理しない(領域退出・ウィンドウ非アクティブ化・シートの破棄でも残らない)。
 struct PointerTracker: NSViewRepresentable {
-    var cursorAt: (CGPoint) -> NSCursor
+    var cursorAt: (CGPoint, _ pressed: Bool) -> NSCursor
     var onMove: (CGPoint?) -> Void
     var onClick: (CGPoint) -> Void
+    var onPressChange: (Bool) -> Void
 
     func makeNSView(context: Context) -> TrackerView {
         let view = TrackerView()
@@ -53,6 +54,7 @@ struct PointerTracker: NSViewRepresentable {
         view.cursorAt = cursorAt
         view.onMove = onMove
         view.onClick = onClick
+        view.onPressChange = onPressChange
     }
 
     static let blankCursor: NSCursor = {
@@ -61,10 +63,13 @@ struct PointerTracker: NSViewRepresentable {
     }()
 
     final class TrackerView: NSView {
-        var cursorAt: (CGPoint) -> NSCursor = { _ in .arrow }
+        var cursorAt: (CGPoint, Bool) -> NSCursor = { _, _ in .arrow }
         var onMove: (CGPoint?) -> Void = { _ in }
         var onClick: (CGPoint) -> Void = { _ in }
+        var onPressChange: (Bool) -> Void = { _ in }
         private var isInside = false
+        /// 押している間は手を握った形にするので、ビュー自身が持つ(SwiftUI の状態更新を待つと1イベント遅れる)。
+        private var isPressed = false
         private var observers: [NSObjectProtocol] = []
 
         override var isFlipped: Bool { true }
@@ -86,7 +91,7 @@ struct PointerTracker: NSViewRepresentable {
         private func track(_ event: NSEvent) {
             let p = point(event)
             isInside = true
-            cursorAt(p).set()
+            cursorAt(p, isPressed).set()
             onMove(p)
         }
 
@@ -99,11 +104,24 @@ struct PointerTracker: NSViewRepresentable {
 
         override func mouseDown(with event: NSEvent) {
             let p = point(event)
+            setPressed(true)
             onClick(p)
             track(event)
         }
 
+        override func mouseUp(with event: NSEvent) {
+            setPressed(false)
+            track(event)
+        }
+
+        private func setPressed(_ value: Bool) {
+            guard isPressed != value else { return }
+            isPressed = value
+            onPressChange(value)
+        }
+
         private func leave() {
+            setPressed(false)
             guard isInside else { return }
             isInside = false
             onMove(nil)
@@ -144,72 +162,102 @@ private struct Click: Equatable {
 }
 
 /// サンプルページの上でカーソルを動かし、クリックして位置を確かめる。システムのカーソルは変更しない。
+/// `others` を渡すと、同じサンプルページを横に並べ、薄い線で区切った列ごとに `reps`、`others` の順でカーソルを切り替えて試す。
 struct TryoutSurface: View {
     let reps: [TryoutRole: CursorRep]
+    var others: [[TryoutRole: CursorRep]] = []
     let dark: Bool
     var extras: [SampleItem] = []
     var compact = false
+    var showsMap = false
 
     @State private var pointer: CGPoint?
+    @State private var pressed = false
     @State private var regions: [TryoutRegion] = []
     @State private var click: Click?
 
     /// 倍率を動かしている間に下のスライダーが動かないよう、高さは固定にする(大きなカーソルは端で切れる)。
-    private var height: CGFloat { compact ? 230 : 280 }
+    private var height: CGFloat {
+        let base: CGFloat = compact ? 190 : 280
+        return showsMap ? base + 120 : base
+    }
 
-    private func role(at point: CGPoint) -> TryoutRole {
-        regions.last { $0.rect.contains(point) }?.role ?? .arrow
+    private func role(at point: CGPoint, pressed: Bool) -> TryoutRole {
+        let found = regions.last { $0.rect.contains(point) }?.role ?? .arrow
+        return pressed && found == .openHand ? .closedHand : found
+    }
+
+    private var columns: [[TryoutRole: CursorRep]] { [reps] + others }
+
+    private func reps(at point: CGPoint, width: CGFloat) -> [TryoutRole: CursorRep] {
+        let columns = columns
+        let index = Int(point.x / (width / CGFloat(columns.count)))
+        return columns[min(max(index, 0), columns.count - 1)]
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .topLeading) {
-                TryoutSamplePage(dark: dark, extras: extras, compact: compact)
-                PointerTracker(
-                    cursorAt: { point in
-                        let role = role(at: point)
-                        return reps[role] == nil ? systemCursor(role) : PointerTracker.blankCursor
-                    },
-                    onMove: { pointer = $0 },
-                    onClick: { point in
-                        let hit = regions.contains { $0.isTarget && $0.rect.contains(point) }
-                        click = Click(point: point, hitTarget: hit)
-                    })
-                if let click {
-                    ClickMarker(hit: click.hitTarget)
-                        .offset(x: click.point.x - 12, y: click.point.y - 12)
-                        .id(click.id)
+            GeometryReader { proxy in
+                let width = proxy.size.width
+                ZStack(alignment: .topLeading) {
+                    if !others.isEmpty {
+                        HStack(spacing: 0) {
+                            ForEach(0..<columns.count, id: \.self) { index in
+                                TryoutSamplePage(
+                                    dark: dark, extras: extras, compact: true, showsMap: showsMap,
+                                    mapNote: mapNote(columns[index])
+                                )
+                                .overlay(alignment: .trailing) {
+                                    if index < columns.count - 1 {
+                                        Rectangle().fill(Color.primary.opacity(0.18)).frame(width: 1)
+                                    }
+                                }
+                            }
+                        }
                         .allowsHitTesting(false)
-                }
-                if let pointer, let rep = reps[role(at: pointer)] {
-                    CursorPreview(rep: rep, zoom: 1)
-                        .offset(x: pointer.x - rep.hotspot.x, y: pointer.y - rep.hotspot.y)
-                        .allowsHitTesting(false)
-                }
-            }
-            .coordinateSpace(name: tryoutSpace)
-            .onPreferenceChange(TryoutRegionKey.self) { regions = $0 }
-            .frame(height: height)
-            // ポインターが外(スライダーなど)にあるときも、いまの大きさが実寸で分かるよう置いておく。
-            .overlay(alignment: .bottomLeading) {
-                if pointer == nil, let role = TryoutRole.allCases.first(where: { reps[$0] != nil }),
-                    let rep = reps[role]
-                {
-                    HStack(alignment: .center, spacing: 10) {
-                        CursorPreview(rep: rep, zoom: 1)
-                        Text(
-                            L10n.text(
-                                "{0}: {1}×{2} pt", role.title, String(Int(rep.size.width)),
-                                String(Int(rep.size.height)))
-                        )
-                        .font(.caption.monospacedDigit().weight(.medium))
-                        .foregroundStyle(dark ? Color(white: 0.8) : Color(white: 0.3))
+                    } else {
+                        TryoutSamplePage(
+                            dark: dark, extras: extras, compact: compact, showsMap: showsMap, mapNote: mapNote(reps))
                     }
-                    .padding(.leading, 20)
-                    .padding(.bottom, 16)
-                    .allowsHitTesting(false)
+                    PointerTracker(
+                        cursorAt: { point, pressed in
+                            let role = role(at: point, pressed: pressed)
+                            return reps(at: point, width: width)[role] == nil
+                                ? systemCursor(role) : PointerTracker.blankCursor
+                        },
+                        onMove: { pointer = $0 },
+                        onClick: { point in
+                            let hit = regions.contains { $0.isTarget && $0.rect.contains(point) }
+                            click = Click(point: point, hitTarget: hit)
+                        },
+                        onPressChange: { pressed = $0 })
+                    if let click {
+                        ClickMarker(hit: click.hitTarget)
+                            .offset(x: click.point.x - 12, y: click.point.y - 12)
+                            .id(click.id)
+                            .allowsHitTesting(false)
+                    }
+                    if let pointer, let rep = reps(at: pointer, width: width)[role(at: pointer, pressed: pressed)] {
+                        CursorPreview(rep: rep, zoom: 1)
+                            .offset(x: pointer.x - rep.hotspot.x, y: pointer.y - rep.hotspot.y)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .coordinateSpace(name: tryoutSpace)
+                .onPreferenceChange(TryoutRegionKey.self) { regions = $0 }
+                // ポインターが外(スライダーなど)にあるときも、いまの大きさが実寸で分かるよう置いておく。
+                .overlay(alignment: .bottomLeading) {
+                    if pointer == nil {
+                        HStack(spacing: 0) {
+                            ForEach(0..<columns.count, id: \.self) { index in
+                                sizeBadge(columns[index]).frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
                 }
             }
+            .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -227,6 +275,30 @@ struct TryoutSurface: View {
         }
     }
 
+    /// 手のカーソルが無いテーマは、適用しても地図では標準の手になる。試用でも標準のまま見せ、その旨を地図の上に出す。
+    private func mapNote(_ reps: [TryoutRole: CursorRep]) -> String? {
+        let missing = [TryoutRole.openHand, .closedHand].filter { reps[$0] == nil }
+        guard !missing.isEmpty else { return nil }
+        return L10n.text("{0}が無いので標準を使います", missing.map(\.title).joined(separator: "・"))
+    }
+
+    @ViewBuilder
+    private func sizeBadge(_ reps: [TryoutRole: CursorRep]) -> some View {
+        if let role = TryoutRole.allCases.first(where: { reps[$0] != nil }), let rep = reps[role] {
+            HStack(alignment: .center, spacing: 10) {
+                CursorPreview(rep: rep, zoom: 1)
+                Text(
+                    L10n.text(
+                        "{0}: {1}×{2} pt", role.title, String(Int(rep.size.width)), String(Int(rep.size.height)))
+                )
+                .font(.caption.monospacedDigit().weight(.medium))
+                .foregroundStyle(dark ? Color(white: 0.8) : Color(white: 0.3))
+            }
+            .padding(.leading, 20)
+            .padding(.bottom, 16)
+        }
+    }
+
     private var caption: String {
         guard let click else { return L10n.text("エリア内をクリックすると、クリックした位置を確かめられます") }
         let x = String(format: "%.1f", click.point.x)
@@ -241,6 +313,8 @@ struct TryoutSurface: View {
         case .arrow: .arrow
         case .ibeam: .iBeam
         case .pointingHand: .pointingHand
+        case .openHand: .openHand
+        case .closedHand: .closedHand
         }
     }
 }
@@ -273,6 +347,8 @@ private struct TryoutSamplePage: View, Equatable {
     let dark: Bool
     let extras: [SampleItem]
     let compact: Bool
+    var showsMap = false
+    var mapNote: String?
 
     var body: some View {
         let ink = dark ? Color(white: 0.94) : Color(white: 0.1)
@@ -339,9 +415,74 @@ private struct TryoutSamplePage: View, Equatable {
                         }
                     }
                 }
+                if showsMap {
+                    TryoutMapSample(dark: dark, note: mapNote)
+                }
             }
             .padding(compact ? 14 : 20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+    }
+}
+
+/// 地図アプリを開いたときの場面。地図の上は開いた手、押している間は握った手、ピンはリンクのカーソルになる。
+private struct TryoutMapSample: View {
+    let dark: Bool
+    var note: String?
+
+    var body: some View {
+        let land = dark ? Color(white: 0.2) : Color(red: 0.91, green: 0.93, blue: 0.88)
+        let road = dark ? Color(white: 0.34) : Color.white
+        let water = dark ? Color(red: 0.13, green: 0.24, blue: 0.36) : Color(red: 0.68, green: 0.82, blue: 0.95)
+        ZStack {
+            Rectangle().fill(land)
+            Canvas { context, size in
+                var river = Path()
+                river.move(to: CGPoint(x: 0, y: size.height * 0.75))
+                river.addCurve(
+                    to: CGPoint(x: size.width, y: size.height * 0.3),
+                    control1: CGPoint(x: size.width * 0.35, y: size.height * 1.05),
+                    control2: CGPoint(x: size.width * 0.6, y: size.height * 0.05))
+                context.stroke(river, with: .color(water), lineWidth: 18)
+                for i in 1..<4 {
+                    var line = Path()
+                    let x = size.width * CGFloat(i) / 4
+                    line.move(to: CGPoint(x: x, y: 0))
+                    line.addLine(to: CGPoint(x: x + 18, y: size.height))
+                    context.stroke(line, with: .color(road), lineWidth: 5)
+                }
+                for i in 1..<3 {
+                    var line = Path()
+                    let y = size.height * CGFloat(i) / 3
+                    line.move(to: CGPoint(x: 0, y: y))
+                    line.addLine(to: CGPoint(x: size.width, y: y - 10))
+                    context.stroke(line, with: .color(road), lineWidth: 5)
+                }
+            }
+            .allowsHitTesting(false)
+        }
+        .frame(height: 100)
+        .overlay(alignment: .bottomLeading) {
+            if let note {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(dark ? Color(white: 0.9) : Color(white: 0.2))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(6)
+                    .allowsHitTesting(false)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .tryoutRegion(.openHand)
+        .overlay {
+            Image(systemName: "mappin.circle.fill")
+                .font(.title2)
+                .foregroundStyle(.red, dark ? Color(white: 0.9) : .white)
+                .padding(6)
+                .tryoutRegion(.pointingHand)
+        }
+        .accessibilityHidden(true)
     }
 }

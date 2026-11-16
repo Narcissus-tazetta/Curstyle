@@ -2,15 +2,21 @@ import CursorKit
 import Foundation
 import Observation
 
-/// 試用画面で確かめる3つの役割。登録先(resolvedPlan の名前)で判定するので、別名や cursor.13 も同じ役割になる。
+/// 試用画面で確かめる役割。登録先(resolvedPlan の名前)で判定するので、別名や cursor.13 も同じ役割になる。
 enum TryoutRole: CaseIterable, Hashable {
     case arrow, ibeam, pointingHand
+    /// マップのドラッグ移動で使う。サンプルにマップを足したときだけ確かめる。
+    case openHand, closedHand
+
+    static let basic: [TryoutRole] = [.arrow, .ibeam, .pointingHand]
 
     var title: String {
         switch self {
         case .arrow: L10n.text("矢印")
         case .ibeam: L10n.text("テキスト")
         case .pointingHand: L10n.text("リンク")
+        case .openHand: L10n.text("手(開)")
+        case .closedHand: L10n.text("手(掴む)")
         }
     }
 
@@ -19,12 +25,14 @@ enum TryoutRole: CaseIterable, Hashable {
         case .arrow: "arrow"
         case .ibeam: "ibeam"
         case .pointingHand: "pointingHand"
+        case .openHand: "openHand"
+        case .closedHand: "closedHand"
         }
     }
 
     /// 適用エンジンが実際に登録する名前。
     fileprivate var registeredName: String {
-        // 固定の3キーは CursorCatalog が必ず解決する。
+        // 固定のキーは CursorCatalog が必ず解決する(openHand / closedHand は roleNames 経由で cursor.12 / 11)。
         try! CursorCatalog.targets(for: key)[0]
     }
 }

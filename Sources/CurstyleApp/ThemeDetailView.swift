@@ -9,6 +9,7 @@ struct ThemeDetailView: View {
     @State private var draftName = ""
     @State private var confirmsDelete = false
     @State private var editingKey: EditingKey?
+    @State private var replacing: ReplaceTarget?
     @State private var editsSpeed = false
     @State private var triesOut = false
     @FocusState private var nameFocused: Bool
@@ -21,15 +22,41 @@ struct ThemeDetailView: View {
         var id: String { key }
     }
 
+    private struct ReplaceTarget: Identifiable {
+        let key: String
+        var id: String { key }
+    }
+
+    /// テーマに無い役割。別名や cursor.N で入っているものは「ある」とみなす(CursorRoles.canonical で突き合わせる)。
+    private var missingRoles: [(group: CursorRoles.Group, keys: [String])] {
+        let present = Set(entry.theme.cursors.keys.map(CursorRoles.canonical))
+        return CursorRoles.groups.compactMap { group in
+            let keys = group.keys.filter { !present.contains($0.lowercased()) }
+            return keys.isEmpty ? nil : (group, keys)
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
+                HStack(alignment: .center) {
+                    Label(
+                        L10n.text("カーソルを右クリックすると、そのカーソルだけ別のテーマや GIF / PNG に差し替えられます。"),
+                        systemImage: "cursorarrow.click.2"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
                 ForEach(CursorRoles.grouped(Array(entry.theme.cursors.keys)), id: \.group.id) { section in
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(section.group.title)
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
+                        HStack {
+                            Text(section.group.title)
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            if section.group.id != "drag" { addMenu(groupID: section.group.id) }
+                        }
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 132, maximum: 180), spacing: 10)], spacing: 10)
                         {
                             ForEach(section.keys, id: \.self) { key in
@@ -42,10 +69,15 @@ struct ThemeDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .disabled(model.busyMessage != nil)
+                                .contextMenu {
+                                    Button(L10n.text("個別に編集…")) { replacing = ReplaceTarget(key: key) }
+                                    Button(L10n.text("ホットスポット・速さを編集…")) { editingKey = EditingKey(key: key) }
+                                }
                             }
                         }
                     }
                 }
+                missingSection
             }
             .padding(24)
             .frame(maxWidth: 1100, alignment: .leading)
@@ -73,6 +105,9 @@ struct ThemeDetailView: View {
         }
         .sheet(item: $editingKey) { editing in
             CursorEditorSheet(model: model, entry: entry, key: editing.key)
+        }
+        .sheet(item: $replacing) { target in
+            CursorReplaceSheet(model: model, entry: entry, key: target.key)
         }
         .sheet(isPresented: $triesOut) {
             ThemeTryoutSheet(model: model, entry: entry)
@@ -218,6 +253,64 @@ struct ThemeDetailView: View {
         .cardBackground(cornerRadius: 16)
     }
 
+    @ViewBuilder
+    private func addMenu(groupID: String?) -> some View {
+        let sections = missingRoles.filter { groupID == nil || $0.group.id == groupID }
+        if !sections.isEmpty {
+            Menu {
+                ForEach(sections, id: \.group.id) { section in
+                    Section(section.group.title) {
+                        ForEach(section.keys, id: \.self) { key in
+                            Button(CursorRoles.title(for: key)) { replacing = ReplaceTarget(key: key) }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(groupID == nil ? .title2 : .title3)
+                    .accessibilityLabel(L10n.text("カーソルを追加"))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .iconHelp(L10n.text("このテーマに無いカーソルを足す"))
+            .disabled(model.busyMessage != nil)
+        }
+    }
+
+    private var missingSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.text("このテーマに無いカーソル"))
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Text(L10n.text("無い役割は適用時に macOS の標準のままです。足すと、ほかのテーマや GIF / PNG から選べます。"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(missingRoles, id: \.group.id) { section in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(section.group.title).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                    FlowLayout(spacing: 8) {
+                        ForEach(section.keys, id: \.self) { key in
+                            Button {
+                                replacing = ReplaceTarget(key: key)
+                            } label: {
+                                Label(CursorRoles.title(for: key), systemImage: "plus")
+                                    .font(.callout)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .overlay(
+                                        Capsule().strokeBorder(
+                                            Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4])))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(model.busyMessage != nil)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var maxFrames: Int? { entry.theme.cursors.values.map(\.frameCount).max() }
 
     private var sizeText: String {
@@ -269,7 +362,7 @@ private struct CursorTile: View {
         .motionAnimation(Motion.quick, value: isHovered)
         .help(
             L10n.text(
-                "クリックで編集\n{0}\n{1}×{2} pt · ホットスポット ({3}, {4})", String(describing: key),
+                "クリックでホットスポットなどを編集・右クリックで個別に差し替え\n{0}\n{1}×{2} pt · ホットスポット ({3}, {4})", String(describing: key),
                 String(describing: Int(rep.size.width)), String(describing: Int(rep.size.height)),
                 String(describing: fmt(rep.hotspot.x)), String(describing: fmt(rep.hotspot.y)))
         )

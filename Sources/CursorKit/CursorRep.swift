@@ -13,16 +13,25 @@ public struct CursorRep: Sendable {
     public var frameCount: Int
     public var frameDuration: Double
     public var images: [CGImage]
+    /// 大きさを変える前の画像(images と同じくコマを縦に並べたもの)。大きさを変えるたびに images から作り直すと、
+    /// 補間のにじみが重なり、ドット絵も判定から外れる。そこで最初に変える前の画像を残し、毎回ここから作る。
+    /// OS には登録しない。
+    public var source: CGImage?
 
-    public init(size: CGSize, hotspot: CGPoint, frameCount: Int, frameDuration: Double, images: [CGImage]) {
+    public init(
+        size: CGSize, hotspot: CGPoint, frameCount: Int, frameDuration: Double, images: [CGImage],
+        source: CGImage? = nil
+    ) {
         self.size = size
         self.hotspot = hotspot
         self.frameCount = frameCount
         self.frameDuration = frameDuration
         self.images = images
+        self.source = source
     }
 
-    /// 表示に効く内容のハッシュ。画像は sRGB RGBA8 に描き直してから比べるので、
+    /// 表示に効く内容のハッシュ。source は表示されず、WindowServer から読み戻した内容と比べる用途もあるので含めない。
+    /// 画像は sRGB RGBA8 に描き直してから比べるので、
     /// 色空間の表現が違うだけの同一画像は同じハッシュになる。
     /// frameDuration は WindowServer が Float32 で保持する(0.1 を登録すると 0.10000000149 が返る)ため、
     /// Float32 に丸めてから比べる。
@@ -58,7 +67,7 @@ public struct CursorRep: Sendable {
         try validate(frameLimit: max(frameCount, Self.maxAnimationFrames))
         guard frameCount > Self.maxAnimationFrames else { return (self, nil) }
         let count = Self.maxAnimationFrames
-        let strips = try images.map { strip in
+        func decimated(_ strip: CGImage) throws -> CGImage {
             let height = strip.height / frameCount
             let frames = try (0..<count).map { i in
                 let index = i * frameCount / count
@@ -71,7 +80,8 @@ public struct CursorRep: Sendable {
             return try WindowsCursorImporter.stack(frames)
         }
         var rep = self
-        rep.images = strips
+        rep.images = try images.map(decimated)
+        rep.source = try source.map(decimated)
         rep.frameCount = count
         rep.frameDuration = frameDuration * Double(frameCount) / Double(count)
         try rep.validate()
@@ -127,6 +137,13 @@ public struct CursorRep: Sendable {
             }
         }
         guard scales.contains(1) || scales.contains(2) else { throw fail(L10n.text("1x か 2x の画像が必要")) }
+        if let source, source.height % frameCount != 0 {
+            throw fail(
+                "source: "
+                    + L10n.text(
+                        "画像の高さ {0} が {1} コマで割り切れない", String(describing: source.height),
+                        String(describing: frameCount)))
+        }
     }
 }
 
@@ -172,6 +189,13 @@ func rgbaBytes(_ image: CGImage) -> Data {
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
     }
     return data
+}
+
+func imageHash(_ image: CGImage) -> String {
+    var hasher = SHA256()
+    hasher.update(data: Data("\(image.width)x\(image.height);".utf8))
+    hasher.update(data: rgbaBytes(image))
+    return hasher.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
 }
 
 /// contentHash と同じ sRGB RGBA8 表現に揃える。保存→読み込みでハッシュを保つため。

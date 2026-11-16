@@ -17,18 +17,19 @@ extension CursorRep {
         return rep
     }
 
-    /// 大きさを factor 倍にする。画像は最も大きい元画像から作り直す(縮小した画像をもう一度拡大して劣化させない)。
+    /// 大きさを factor 倍にする。画像は source(無ければ最も大きい画像)から作り直し、それを source として残す。
     /// 登録形式は「画像幅が size.width の整数倍」を要求するので、size は整数 pt に丸めてから各画像の倍率を掛ける。
     public func scalingSize(by factor: Double) throws -> CursorRep {
         let newSize = CGSize(
             width: max(1, (size.width * factor).rounded()), height: max(1, (size.height * factor).rounded()))
-        guard let largest = images.max(by: { $0.width < $1.width }) else {
+        guard let largest = source ?? images.max(by: { $0.width < $1.width }) else {
             throw CursorKitError.invalidCursor(L10n.text("画像が無い"))
         }
         // 1x だけのテーマでも 2x を作る。Retina で OS に 1x を引き伸ばさせると、くっきり拡大した意味がなくなる。
         let pixelScales = Set(images.map { Int(Double($0.width) / size.width) }).union([2]).sorted().map(Double.init)
         var rep = self
         rep.size = newSize
+        rep.source = largest
         rep.images = try pixelScales.map { scale in
             try resampleStrip(
                 largest, frameCount: frameCount,
@@ -115,7 +116,8 @@ extension CursorTheme {
         var theme = self
         var cache: [String: CursorRep] = [:]
         for (key, rep) in cursors {
-            let hash = rep.contentHash
+            // 見た目が同じでも元画像が違えば結果が変わるので、元画像も区別する。
+            let hash = rep.contentHash + "/" + (rep.source.map(imageHash) ?? "")
             if cache[hash] == nil { cache[hash] = try rep.scalingSize(by: factor) }
             theme.cursors[key] = cache[hash]
         }

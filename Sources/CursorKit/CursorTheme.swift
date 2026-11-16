@@ -37,8 +37,10 @@ public struct CursorTheme: Sendable {
     /// テーマディレクトリ: theme.json と PNG。
     /// ```
     /// { "name": "...", "cursors": { "arrow": { "size": [w, h], "hotspot": [x, y],
-    ///   "frameCount": 1, "frameDuration": 0, "images": ["arrow@1x.png", "arrow@2x.png"] } } }
+    ///   "frameCount": 1, "frameDuration": 0, "images": ["arrow@1x.png", "arrow@2x.png"],
+    ///   "source": "arrow@source.png" } } }
     /// ```
+    /// source は省略できる(CursorRep.source)。
     public static func load(directory: URL) throws -> CursorTheme {
         struct Entry: Decodable {
             var size: [Double]
@@ -46,6 +48,7 @@ public struct CursorTheme: Sendable {
             var frameCount: Int?
             var frameDuration: Double?
             var images: [String]
+            var source: String?
         }
         struct File: Decodable {
             var name: String
@@ -67,7 +70,8 @@ public struct CursorTheme: Sendable {
             let images = try e.images.map { try readPNG(at: directory.appendingPathComponent($0)) }
             cursors[key] = CursorRep(
                 size: CGSize(width: e.size[0], height: e.size[1]), hotspot: CGPoint(x: e.hotspot[0], y: e.hotspot[1]),
-                frameCount: e.frameCount ?? 1, frameDuration: e.frameDuration ?? 0, images: images)
+                frameCount: e.frameCount ?? 1, frameDuration: e.frameDuration ?? 0, images: images,
+                source: try e.source.map { try readPNG(at: directory.appendingPathComponent($0)) })
         }
         return CursorTheme(name: file.name, cursors: cursors)
     }
@@ -82,6 +86,7 @@ extension CursorTheme {
             var frameCount: Int
             var frameDuration: Double
             var images: [String]
+            var source: String?
         }
         struct File: Encodable {
             var name: String
@@ -96,9 +101,13 @@ extension CursorTheme {
                 try writePNG(image, to: directory.appendingPathComponent(file))
                 files.append(file)
             }
+            let sourceFile = rep.source.map { _ in "\(key)@source.png" }
+            if let source = rep.source, let sourceFile {
+                try writePNG(source, to: directory.appendingPathComponent(sourceFile))
+            }
             entries[key] = Entry(
                 size: [rep.size.width, rep.size.height], hotspot: [rep.hotspot.x, rep.hotspot.y],
-                frameCount: rep.frameCount, frameDuration: rep.frameDuration, images: files)
+                frameCount: rep.frameCount, frameDuration: rep.frameDuration, images: files, source: sourceFile)
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

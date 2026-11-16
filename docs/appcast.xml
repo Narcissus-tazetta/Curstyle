@@ -3,6 +3,30 @@
     <channel>
         <title>Curstyle</title>
         <item>
+            <title>0.2.0</title>
+            <pubDate>Mon, 16 Nov 2026 10:47:24 +0000</pubDate>
+            <link>https://github.com/Narcissus-tazetta/Curstyle</link>
+            <sparkle:version>200</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Try themes before you apply them, and mix your own.
+
+**New**
+- **Try it** lets you test a theme on text, links, buttons, and a map sample without changing your system cursor.
+- Compare up to four themes side by side, each with its own size control and a light or dark background.
+- Replace a single cursor with one from another theme or a GIF / PNG, with a before-and-after preview. Add cursor roles a theme is missing.
+- **Undo** (⌘Z) reverts saved edits one at a time, and the history survives restarts. Edits made before this version can't be undone.
+
+**Improved**
+- Lower CPU use while the mouse is moving with the overlay backend.
+- Size fields for GIF / PNG replacements no longer save values outside 8–128 pt.
+
+Apple Silicon only, tested on macOS 27.2. Curstyle is not notarized: on first launch, choose **Open Anyway** in System Settings → Privacy & Security.
+]]></description>
+            <enclosure url="https://github.com/Narcissus-tazetta/Curstyle/releases/download/v0.2.0/Curstyle-macos-v0.2.0.zip" length="4150550" type="application/octet-stream" sparkle:edSignature="jHmiRVF1iJq1x95r477GFFfL3BMeiIMA9iSwZerl+qSob3Xx66sKILWNz8bC+sn7NLcc+Obv54qkUMmQwWHKDA=="/>
+        </item>
+        <item>
             <title>0.1.1</title>
             <pubDate>Sat, 14 Nov 2026 02:59:33 +0000</pubDate>
             <link>https://github.com/Narcissus-tazetta/Curstyle</link>

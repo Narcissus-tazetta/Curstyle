@@ -699,10 +699,20 @@ public enum WindowsCursorImporter {
             duration = Double(unit) / 60
         }
 
+        let size = CGSize(width: width / pixelsPerPoint, height: height / pixelsPerPoint)
+        let strip = try stack(sequence.map(\.image))
+        // 1px = 1pt のときは Retina 用の 2x を足す。OS に 1x を引き伸ばさせるとドット絵がにじむ。
+        let images =
+            pixelsPerPoint == 1
+            ? [
+                strip,
+                try resampleStrip(
+                    strip, frameCount: sequence.count, to: CGSize(width: size.width * 2, height: size.height * 2)),
+            ] : [strip]
         return CursorRep(
-            size: CGSize(width: width / pixelsPerPoint, height: height / pixelsPerPoint),
+            size: size,
             hotspot: CGPoint(x: first.hotspot.x / Double(pixelsPerPoint), y: first.hotspot.y / Double(pixelsPerPoint)),
-            frameCount: sequence.count, frameDuration: duration, images: [try stack(sequence.map(\.image))])
+            frameCount: sequence.count, frameDuration: duration, images: images)
     }
 
     /// RIFF 'ACON'。anih(ヘッダー)・rate(ステップごとの 1/60 秒)・seq(ステップ→フレーム番号)・LIST fram の icon。

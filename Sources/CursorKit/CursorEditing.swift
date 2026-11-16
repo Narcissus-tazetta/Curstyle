@@ -25,10 +25,11 @@ extension CursorRep {
         guard let largest = images.max(by: { $0.width < $1.width }) else {
             throw CursorKitError.invalidCursor(L10n.text("画像が無い"))
         }
-        let pixelScales = images.map { Double($0.width) / size.width }
+        // 1x だけのテーマでも 2x を作る。Retina で OS に 1x を引き伸ばさせると、くっきり拡大した意味がなくなる。
+        let pixelScales = Set(images.map { Int(Double($0.width) / size.width) }).union([2]).sorted().map(Double.init)
         var rep = self
         rep.size = newSize
-        rep.images = try zip(images, pixelScales).map { _, scale in
+        rep.images = try pixelScales.map { scale in
             try resampleStrip(
                 largest, frameCount: frameCount,
                 to: CGSize(width: newSize.width * scale, height: newSize.height * scale))

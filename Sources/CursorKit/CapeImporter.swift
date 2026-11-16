@@ -140,8 +140,54 @@ public enum CapeImporter {
     }
 }
 
-/// 縦に並んだコマを1コマずつ縮小して並べ直す。帯ごと縮小すると隣のコマの端が混ざるため。
+/// 縦に並んだコマを1コマずつ拡大・縮小して並べ直す。
+/// ドット絵をなめらかな補間で半端な倍率(32px → 84px など)に拡大すると、画素の幅が不揃いになり輪郭もにじむ。
+/// そこで最近傍補間で整数倍に広げてから目標の大きさへ縮める。混ざるのは画素の境目の1画素だけになる。
 func resampleStrip(_ strip: CGImage, frameCount: Int, to frameSize: CGSize) throws -> CGImage {
+    let sourceWidth = strip.width
+    let sourceHeight = strip.height / frameCount
+    let ratio = max(frameSize.width / Double(sourceWidth), frameSize.height / Double(sourceHeight))
+    guard ratio > 1, isPixelArt(strip) else {
+        return try drawFrames(strip, frameCount: frameCount, to: frameSize, quality: .high)
+    }
+    let factor = Int(ratio.rounded(.up))
+    let enlarged = try drawFrames(
+        strip, frameCount: frameCount, to: CGSize(width: sourceWidth * factor, height: sourceHeight * factor),
+        quality: .none)
+    if enlarged.width == Int(frameSize.width.rounded())
+        && enlarged.height / frameCount == Int(frameSize.height.rounded())
+    {
+        return enlarged
+    }
+    return try drawFrames(enlarged, frameCount: frameCount, to: frameSize, quality: .high)
+}
+
+/// 半透明の画素がほぼ無く(Windows の .cur / .ani は1ビットの透過が多い)、色数も少ない画像をドット絵とみなす。
+/// 手元の実測ではドット絵テーマは半透明 0%・40〜60色、なめらかなカーソル(Bibata など)は半透明 29〜90%。
+/// 色数の条件は、透過が1ビットしかない GIF のイラストを最近傍で拡大してカクカクにしないため。
+func isPixelArt(_ image: CGImage) -> Bool {
+    let bytes = rgbaBytes(image)
+    var visible = 0
+    var partial = 0
+    var colors = Set<UInt32>()
+    bytes.withUnsafeBytes { raw in
+        let p = raw.bindMemory(to: UInt8.self)
+        for i in stride(from: 0, to: p.count, by: 4) where p[i + 3] > 0 {
+            visible += 1
+            if p[i + 3] < 255 { partial += 1 }
+            if colors.count <= pixelArtMaxColors {
+                colors.insert(UInt32(p[i]) << 24 | UInt32(p[i + 1]) << 16 | UInt32(p[i + 2]) << 8 | UInt32(p[i + 3]))
+            }
+        }
+    }
+    return visible > 0 && partial * 100 <= visible && colors.count <= pixelArtMaxColors
+}
+
+private let pixelArtMaxColors = 128
+
+private func drawFrames(_ strip: CGImage, frameCount: Int, to frameSize: CGSize, quality: CGInterpolationQuality)
+    throws -> CGImage
+{
     let w = Int(frameSize.width.rounded())
     let h = Int(frameSize.height.rounded())
     let sourceHeight = strip.height / frameCount
@@ -150,7 +196,7 @@ func resampleStrip(_ strip: CGImage, frameCount: Int, to frameSize: CGSize) thro
             data: nil, width: w, height: h * frameCount, bitsPerComponent: 8, bytesPerRow: w * 4,
             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
     else { throw CursorKitError.io(L10n.text("縮小先の画像を作れない")) }
-    ctx.interpolationQuality = .high
+    ctx.interpolationQuality = quality
     for i in 0..<frameCount {
         guard
             let frame = strip.cropping(

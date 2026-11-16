@@ -147,3 +147,49 @@ struct BackdropView: View {
         .overlay(shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
     }
 }
+
+struct ThemeActionButtonStyle: ButtonStyle {
+    var primary = false
+    var tinted = false
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    private var colorful: Bool { primary || tinted }
+
+    private var colors: [Color] {
+        if primary {
+            return [Color(red: 0.49, green: 0.46, blue: 0.96), Color(red: 0.35, green: 0.34, blue: 0.86)]
+        }
+        if tinted {
+            return [Color(red: 0.80, green: 0.40, blue: 0.72), Color(red: 0.65, green: 0.32, blue: 0.71)]
+        }
+        let fill = Color.primary.opacity(0.065)
+        return [fill, fill]
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 16)
+            .frame(height: 30)
+            .foregroundStyle(colorful ? Color.white : Color.primary)
+            .background {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: colorful
+                                ? [Color.white.opacity(contrast == .increased ? 0.6 : 0.32), Color.white.opacity(0.08)]
+                                : [Color.primary.opacity(0.14), Color.primary.opacity(0.08)],
+                            startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(colorful && isEnabled ? 0.12 : 0), radius: 3, y: 2)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.4)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .animation(reduceMotion ? nil : Motion.quick, value: configuration.isPressed)
+    }
+}

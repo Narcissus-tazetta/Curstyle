@@ -42,7 +42,7 @@ struct ThemeDetailView: View {
                 header
                 HStack(alignment: .center) {
                     Label(
-                        L10n.text("カーソルを右クリックすると、そのカーソルだけ別のテーマや GIF / PNG に差し替えられます。"),
+                        L10n.text("カーソルをクリックして差し替え、右クリックでホットスポット・速さを編集できます。"),
                         systemImage: "cursorarrow.click.2"
                     )
                     .font(.callout)
@@ -61,7 +61,7 @@ struct ThemeDetailView: View {
                         {
                             ForEach(section.keys, id: \.self) { key in
                                 Button {
-                                    editingKey = EditingKey(key: key)
+                                    replacing = ReplaceTarget(key: key)
                                 } label: {
                                     CursorTile(
                                         key: key, rep: entry.theme.cursors[key]!, backdrop: model.backdrop,
@@ -70,7 +70,7 @@ struct ThemeDetailView: View {
                                 .buttonStyle(.plain)
                                 .disabled(model.busyMessage != nil)
                                 .contextMenu {
-                                    Button(L10n.text("個別に編集…")) { replacing = ReplaceTarget(key: key) }
+                                    Button(L10n.text("差し替え…")) { replacing = ReplaceTarget(key: key) }
                                     Button(L10n.text("ホットスポット・速さを編集…")) { editingKey = EditingKey(key: key) }
                                 }
                             }
@@ -107,7 +107,9 @@ struct ThemeDetailView: View {
             CursorEditorSheet(model: model, entry: entry, key: editing.key)
         }
         .sheet(item: $replacing) { target in
-            CursorReplaceSheet(model: model, entry: entry, key: target.key)
+            let current = model.entry(id: entry.id) ?? entry
+            CursorReplaceSheet(model: model, entry: current, key: target.key)
+                .id(current.undoCount)
         }
         .sheet(isPresented: $triesOut) {
             ThemeTryoutSheet(model: model, entry: entry)
@@ -196,8 +198,7 @@ struct ThemeDetailView: View {
                         } label: {
                             Label(L10n.text("変更を適用"), systemImage: "arrow.triangle.2.circlepath")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                        .buttonStyle(ThemeActionButtonStyle(primary: true))
                     }
                     if isActive || hasPendingChanges {
                         Button {
@@ -205,30 +206,35 @@ struct ThemeDetailView: View {
                         } label: {
                             Label(L10n.text("標準に戻す"), systemImage: "arrow.uturn.backward")
                         }
-                        .controlSize(.large)
+                        .buttonStyle(ThemeActionButtonStyle())
                     } else {
                         Button {
                             Task { await model.apply(entry) }
                         } label: {
                             Label(L10n.text("このテーマを適用"), systemImage: "checkmark")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                        .buttonStyle(ThemeActionButtonStyle(primary: true))
                     }
                     Button {
                         triesOut = true
                     } label: {
                         Label(L10n.text("試してみる"), systemImage: "wand.and.stars")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.purple)
-                    .controlSize(.large)
+                    .buttonStyle(ThemeActionButtonStyle(tinted: true))
                     if let message = model.busyMessage {
                         ProgressView().controlSize(.small)
                         Text(message).font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Menu {
+                        Button {
+                            model.undoEdit(entry)
+                        } label: {
+                            Label(L10n.text("元に戻す"), systemImage: "arrow.uturn.backward")
+                        }
+                        .keyboardShortcut("z", modifiers: .command)
+                        .disabled(entry.undoCount == 0)
+                        Divider()
                         Button(L10n.text("試して整える…")) { triesOut = true }
                         if maxFrames ?? 1 > 1 {
                             Button(L10n.text("アニメの速さを一括で変える…")) { editsSpeed = true }
@@ -362,7 +368,7 @@ private struct CursorTile: View {
         .motionAnimation(Motion.quick, value: isHovered)
         .help(
             L10n.text(
-                "クリックでホットスポットなどを編集・右クリックで個別に差し替え\n{0}\n{1}×{2} pt · ホットスポット ({3}, {4})", String(describing: key),
+                "クリックで差し替え・右クリックでホットスポット・速さを編集\n{0}\n{1}×{2} pt · ホットスポット ({3}, {4})", String(describing: key),
                 String(describing: Int(rep.size.width)), String(describing: Int(rep.size.height)),
                 String(describing: fmt(rep.hotspot.x)), String(describing: fmt(rep.hotspot.y)))
         )

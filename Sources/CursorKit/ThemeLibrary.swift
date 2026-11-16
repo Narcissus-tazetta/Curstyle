@@ -9,6 +9,7 @@ public final class ThemeLibrary: @unchecked Sendable {
         public var directory: URL
         public var theme: CursorTheme
         public var addedAt: Date
+        public var undoCount: Int = 0
         /// テーマの中身の指紋。active-theme と比べて「適用中か」を判断する。
         public var fingerprint: String
     }
@@ -35,7 +36,7 @@ public final class ThemeLibrary: @unchecked Sendable {
                 entries.append(
                     Entry(
                         id: dir.lastPathComponent, directory: dir, theme: theme, addedAt: added,
-                        fingerprint: theme.fingerprint))
+                        undoCount: try historyCount(in: dir), fingerprint: theme.fingerprint))
             } catch {
                 errors.append((dir, "\(error)"))
             }
@@ -71,17 +72,49 @@ public final class ThemeLibrary: @unchecked Sendable {
         return try update(entry, with: theme)
     }
 
-    /// 中身を置き換える。別の場所に書いてから差し替えるので、途中で失敗しても元のテーマが残り、
-    /// 使わなくなった画像も残らない。
+    /// 別の場所に履歴ごと書いてから差し替え、保存失敗時は元のテーマと履歴を保つ。
     @discardableResult
     public func update(_ entry: Entry, with theme: CursorTheme) throws -> Entry {
+        try replace(entry, with: theme, undoing: false)
+    }
+
+    @discardableResult
+    public func undo(_ entry: Entry) throws -> Entry {
+        let count = try historyCount(in: entry.directory)
+        let previous = try CursorTheme.load(directory: historyURL(in: entry.directory, index: count))
+        return try replace(entry, with: previous, undoing: true)
+    }
+
+    private func historyURL(in directory: URL, index: Int) -> URL {
+        directory.appendingPathComponent(".undo", isDirectory: true)
+            .appendingPathComponent(String(format: "%08d", index), isDirectory: true)
+    }
+
+    private func historyCount(in directory: URL) throws -> Int {
+        let history = directory.appendingPathComponent(".undo", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: history.path) else { return 0 }
+        return try FileManager.default.contentsOfDirectory(at: history, includingPropertiesForKeys: nil).count
+    }
+
+    private func replace(_ entry: Entry, with theme: CursorTheme, undoing: Bool) throws -> Entry {
         _ = try theme.resolvedPlan()
         let fm = FileManager.default
+        let count = try historyCount(in: entry.directory)
         let staging = root.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
         do {
             try theme.write(directory: staging)
-            // 一覧は作成日順なので、差し替えで並びが変わらないよう元の日付を引き継ぐ。
+            let history = entry.directory.appendingPathComponent(".undo", isDirectory: true)
+            if count > 0 {
+                try fm.copyItem(at: history, to: staging.appendingPathComponent(".undo", isDirectory: true))
+            }
+            if undoing {
+                try fm.removeItem(at: historyURL(in: staging, index: count))
+            } else {
+                let previous = try CursorTheme.load(directory: entry.directory)
+                try previous.write(directory: historyURL(in: staging, index: count + 1))
+            }
             try fm.setAttributes([.creationDate: entry.addedAt], ofItemAtPath: staging.path)
+            // 履歴も同じディレクトリ内で差し替え、保存失敗で履歴だけが進むことを防ぐ。
             _ = try fm.replaceItemAt(entry.directory, withItemAt: staging)
         } catch {
             try? fm.removeItem(at: staging)
@@ -89,6 +122,7 @@ public final class ThemeLibrary: @unchecked Sendable {
         }
         var updated = entry
         updated.theme = theme
+        updated.undoCount = count + (undoing ? -1 : 1)
         updated.fingerprint = theme.fingerprint
         return updated
     }

@@ -2,7 +2,7 @@
 
 **Make your macOS cursor your own.**
 
-Replace system cursors for pointing, text selection, links, window resizing, and more. Import Windows cursor themes or Mousecape `.cape` files, preview their animations, and fine-tune them before applying.
+Import Windows cursor themes or Mousecape `.cape` files, try them on text, links, and click targets, and compare themes side by side before applying. Mix individual cursors from your library and adjust sizes, hotspots, and animation speed to make them your own.
 
 [![Curstyle switching between custom arrow, text, and link cursors](docs/assets/demo.gif)](docs/assets/demo.mp4)
 
@@ -14,11 +14,26 @@ Replace system cursors for pointing, text selection, links, window resizing, and
 ## Features
 
 - **Import themes** from Windows `.cur` / `.ani` files, Mousecape `.cape` files, or Curstyle's `theme.json` format.
-- **Preview before applying**, with animated previews, selectable backgrounds, and hotspot markers.
-- **Adjust your cursors** by editing hotspots, sizes, and animation speed, or replacing individual cursors with GIF / PNG images.
+- **Try and compare** up to four themes on the same text, links, buttons, and map sample, with separate size controls and light or dark backgrounds.
+- **Mix and match** individual cursors from library themes or GIF / PNG files, with a before-and-after preview. Add cursor roles missing from a theme.
+- **Fine-tune your cursors** with hotspot and animation-speed editing. Undo saved edits one at a time with **Undo** or ⌘Z; history survives app restarts.
 - **Switch and restore** from the app or menu bar.
 - **Reapply automatically** when a restart, login, or pointer setting change resets your theme.
 - **Diagnose problems** and export a report from Settings.
+
+## Try, compare, and make it yours
+
+Choose **Try it** next to the apply button to test a theme without changing your system cursor. Use **+** to add themes for comparison, then move between the sample areas to feel the difference. Each theme has its own size control; you can also add a map sample or extra text and buttons.
+
+![Two cursor themes side by side, with text, links, click targets, and independent size controls](docs/assets/theme-comparison.png)
+
+Click a cursor tile to replace just that role. Pick a cursor from another library theme or a GIF / PNG file, compare **Current** and **After**, and save when you are happy with it.
+
+<p align="center">
+  <img src="docs/assets/cursor-replacement.png" width="640" alt="Replacing a precision cursor with one from another library theme, with a before-and-after preview">
+</p>
+
+The amber cursors shown here are from [Bibata Modern Amber](https://github.com/ful1e5/Bibata_Cursor).
 
 ## Reliability and recovery
 
@@ -72,9 +87,9 @@ Curstyle supports English and Japanese. With no saved language preference, it us
 1. Download a cursor theme and extract its archive if needed.
 2. Drag the theme folder or `.cape` file into the app window. You can also use **+** (⌘O) or drop it onto the Dock icon.
 3. Check the cursor roles and any skipped files, try the theme in the sample area (move the cursor over text and links, click the target, and adjust the size with the slider), then choose **Add to Library**.
-4. Select the theme and choose **Apply This Theme**.
+4. Select the theme. Choose **Try it** to compare and adjust it, or **Apply This Theme** to use it.
 
-To undo the change, choose **Restore Defaults** in the theme view, at the bottom of the sidebar, or in the menu bar.
+To return to the macOS cursors, choose **Restore Defaults** in the theme view, at the bottom of the sidebar, or in the menu bar. **Undo** reverses theme edits; it does not restore the system cursors.
 
 ### Supported formats
 
@@ -83,17 +98,27 @@ To undo the change, choose **Restore Defaults** in the theme view, at the bottom
 | Windows cursors | A folder containing `.cur` / `.ani` files | Roles are detected from INF metadata or filenames. Animated files take priority when both versions exist for a role |
 | Mousecape | A `.cape` file | Imports images, animations, and hotspots |
 | Curstyle | A folder containing `theme.json` and its images | Imports an existing Curstyle theme |
-| GIF / PNG | An image selected in the cursor editor | Replaces an individual cursor within a theme |
+| GIF / PNG | A file selected in the cursor replacement or editing window | Replaces or adds an individual cursor within a theme |
 
-Windows themes default to **1 px = 1 pt**: a 32 px image becomes a 32 pt cursor. For a smaller cursor, select **Smaller (2 px = 1 pt)** during import. Files with unrecognized roles or no macOS equivalent are skipped.
+Windows themes start at **1 px = 1 pt**: a 32 px image becomes a 32 pt cursor. Use the size slider in the import preview to adjust the theme before adding it to your library. Files with unrecognized roles or no macOS equivalent are skipped.
 
 Animations with more than 24 frames are automatically reduced to 24 frames during import. The total loop duration is preserved, but motion becomes less smooth. The import preview and CLI report these adjustments. GIF replacements use the same conversion.
 
 ### Editing cursors
 
-Click a cursor tile to open its editor. Set the hotspot (the click location) numerically, or click and drag in the preview. You can adjust animation speed per cursor, or use **Try and adjust…** (also in the theme's **…** menu) to try the theme on a sample page and change the size of the whole theme. The **…** menu also changes the animation speed for the whole theme.
+Click a cursor tile to open **Replace**. Choose a source theme and a cursor, or select a GIF / PNG file. **Match current size** scales a library cursor to the current cursor's image dimensions, including transparent padding. The before-and-after preview shows the result before saving.
 
-Saving edits to an active theme does not immediately change the system cursor. Choose **Apply Changes** to apply them.
+Use the **+** beside a group heading, or choose a role under **Cursors this theme doesn't have**, to fill in a missing role. Roles you leave out use the macOS defaults.
+
+Right-click a tile and choose **Edit Hotspot and Speed…** to adjust the click location or animation timing. Set the hotspot numerically, or click and drag in the preview. The theme's **…** menu also lets you change animation speed for the whole theme.
+
+Choose **Try it** to test and resize themes, with up to four themes side by side. Adjustments start from each theme's saved size; **Reset size** returns to that size. Save the adjustments you want to keep.
+
+### Undoing edits
+
+Choose **Undo** in the replacement window or the theme's **…** menu, or press **⌘Z**, to undo the selected theme's most recent saved edit. Each press goes back one edit, including replacements and size adjustments. History is stored with the theme and remains available after restarting Curstyle.
+
+Saving or undoing edits to an active theme does not immediately change the system cursor. Choose **Apply Changes** to apply them.
 
 ### Keeping your theme after login
 
@@ -135,7 +160,7 @@ Logging out and back in also resets the cursors. Disable automatic reapplication
 
 Open **Diagnostics** in Settings to inspect the current state, and choose **Export Report** to save a diagnostic report.
 
-Curstyle stores its data in `~/Library/Application Support/Curstyle/`. Imported themes live in `themes/`; the same data directory also holds default-cursor snapshots, theme application state, and helper logs. Do not delete snapshots while a theme is active: Curstyle uses them to restore the default images.
+Curstyle stores its data in `~/Library/Application Support/Curstyle/`. Imported themes live in `themes/`; the same data directory also holds default-cursor snapshots, theme application state, and helper logs. Saved edit history lives in each theme's `.undo/` directory. Do not delete snapshots while a theme is active: Curstyle uses them to restore the default images.
 
 ## CLI
 
@@ -193,7 +218,7 @@ Curstyle is a Swift Package Manager project.
 | `Sources/CCursorBridge` | C bridge to private APIs; symbols are resolved with `dlsym` |
 | `Sources/curstyle` | CLI and background helper |
 | `Sources/curstyle-probe` / `Sources/curstyle-overlay-probe` | Tools for investigating private APIs and rendering behavior |
-| `Tests/CursorKitTests` | Cursor import, animation conversion, and localization tests |
+| `Tests/CursorKitTests` | Cursor import, animation conversion, edit history, and localization tests |
 | `Support` / `make-app.sh` / `scripts` | App bundle configuration, assembly, and release packaging |
 
 ```bash

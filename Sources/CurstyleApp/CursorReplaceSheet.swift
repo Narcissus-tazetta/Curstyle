@@ -109,6 +109,15 @@ struct CursorReplaceSheet: View {
             }
 
             HStack {
+                Button {
+                    model.undoEdit(entry)
+                } label: {
+                    Label(L10n.text("元に戻す"), systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(ThemeActionButtonStyle())
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(entry.undoCount == 0 || model.busyMessage != nil)
+                .help(L10n.text("直前の編集を取り消す (⌘Z)"))
                 if let validationError {
                     Label(validationError, systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -121,7 +130,9 @@ struct CursorReplaceSheet: View {
                 Button(before == nil ? L10n.text("追加") : L10n.text("保存")) { save() }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(candidate == nil || validationError != nil)
+                    .disabled(
+                        candidate == nil || validationError != nil
+                            || (source == .file && !(8...128).contains(pointSize)))
             }
         }
         .padding(20)
@@ -323,7 +334,7 @@ struct CursorReplaceSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if before == nil || fileURL != nil {
-                Text(L10n.text("クリック位置(ホットスポット)は保存後、タイルをクリックして調整できます。"))
+                Text(L10n.text("クリック位置(ホットスポット)は保存後、タイルを右クリックして「ホットスポット・速さを編集…」から調整できます。"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

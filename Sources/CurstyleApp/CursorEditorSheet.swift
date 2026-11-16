@@ -171,7 +171,9 @@ struct CursorEditorSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(validationError != nil)
+                .disabled(
+                    validationError != nil || imageError != nil
+                        || (imageSource != nil && !(8...128).contains(pointSize)))
             }
         }
         .padding(20)

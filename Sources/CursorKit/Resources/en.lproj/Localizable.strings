@@ -490,4 +490,18 @@
 "今の大きさに合わせる" = "Match current size";
 "GIF / PNG を選ぶ…" = "Choose GIF / PNG…";
 "ここへ GIF / PNG をドラッグしても選べます。GIF はアニメのまま使えます。" = "You can also drag a GIF / PNG here. GIFs keep their animation.";
-"クリック位置(ホットスポット)は保存後、タイルをクリックして調整できます。" = "After saving, click the tile to adjust the click position (hotspot).";
+"クリック位置(ホットスポット)は保存後、タイルを右クリックして「ホットスポット・速さを編集…」から調整できます。" = "After saving, right-click the tile and choose Edit Hotspot and Speed… to adjust the click position (hotspot).";
+
+"差し替え…" = "Replace…";
+
+"カーソルをクリックして差し替え、右クリックでホットスポット・速さを編集できます。" = "Click a cursor to replace it. Right-click to edit its hotspot or animation speed.";
+
+"クリックで差し替え・右クリックでホットスポット・速さを編集\n{0}\n{1}×{2} pt · ホットスポット ({3}, {4})" = "Click to replace; right-click to edit hotspot or animation speed\n{0}\n{1}×{2} pt · Hotspot ({3}, {4})";
+
+"元に戻す" = "Undo";
+
+"直前の編集を取り消す (⌘Z)" = "Undo the last edit (⌘Z)";
+
+"編集を元に戻しました" = "Undid the last edit";
+
+"編集を元に戻せませんでした" = "Could not undo the edit";

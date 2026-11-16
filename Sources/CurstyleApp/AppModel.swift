@@ -219,6 +219,19 @@ final class AppModel {
         }
     }
 
+    func undoEdit(_ entry: ThemeLibrary.Entry) {
+        do {
+            _ = try library.undo(entry)
+            reload()
+            show(
+                .success, L10n.text("編集を元に戻しました"),
+                hasPendingChanges(self.entry(id: entry.id) ?? entry)
+                    ? L10n.text("画面のカーソルはまだ前の内容です。「変更を適用」で反映します。") : nil)
+        } catch {
+            show(.failure, L10n.text("編集を元に戻せませんでした"), "\(error)")
+        }
+    }
+
     /// アプリで最後に適用したライブラリのテーマ。編集で中身(指紋)が変わっても「適用中だったテーマ」を辿るため。
     private static let lastAppliedKey = "lastAppliedEntryID"
     var lastAppliedEntryID: String? {

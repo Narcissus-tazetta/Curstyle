@@ -70,16 +70,9 @@ extension CursorRep {
             throw CursorKitError.invalidCursor(L10n.text("コマごとに画像の大きさが違う"))
         }
 
-        // 登録形式は全コマ同じ間隔なので、間隔が違えば最大公約数で割ってコマを繰り返す(.ani と同じ)。
-        // 繰り返すコマは先に1回だけ正規化する(間隔が互いに素に近い GIF では繰り返しが多く、毎回やり直すと重い)。
+        let timeline = frames.count > 1 ? AnimationTimeline(durations: delays, ticksPerSecond: 100) : nil
         let normalizedFrames = frames.map(normalizedImage)
-        var sequence = normalizedFrames
-        var duration = 0.0
-        if frames.count > 1 {
-            let unit = delays.reduce(0) { gcd($0, $1) }
-            sequence = zip(normalizedFrames, delays).flatMap { Array(repeating: $0, count: $1 / unit) }
-            duration = Double(unit) / 100
-        }
+        let sequence = timeline.map { $0.indices.map { normalizedFrames[$0] } } ?? normalizedFrames
 
         let longer = Double(max(first.width, first.height))
         let size = CGSize(
@@ -91,9 +84,11 @@ extension CursorRep {
                 strip, frameCount: sequence.count,
                 to: CGSize(width: size.width * Double($0), height: size.height * Double($0)))
         }
-        return try CursorRep(
-            size: size, hotspot: .zero, frameCount: sequence.count, frameDuration: duration, images: images
-        ).importingAnimation()
+        let rep = CursorRep(
+            size: size, hotspot: .zero, frameCount: sequence.count,
+            frameDuration: timeline?.frameDuration ?? 0, images: images)
+        try rep.validate()
+        return (rep, timeline?.adjustment)
     }
 
     /// ブラウザと同じく、0.02 秒未満の指定は 0.1 秒として扱う(作者がブラウザで見た速さに合わせる)。
@@ -106,8 +101,6 @@ extension CursorRep {
         let hundredths = Int((seconds * 100).rounded())
         return hundredths < 2 ? 10 : hundredths
     }
-
-    private static func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
 }
 
 extension CursorTheme {

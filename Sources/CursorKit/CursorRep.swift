@@ -95,10 +95,15 @@ public struct CursorRep: Sendable {
         try rep.validate()
         return (
             rep,
-            L10n.text(
-                "{0} → {1} コマに間引きました（1周の時間は維持・動きの滑らかさは低下します）", String(describing: frameCount), String(describing: count)
-            )
+            Self.animationAdjustment(originalFrameCount: frameCount)
         )
+    }
+
+    static func animationAdjustment(originalFrameCount: Int) -> String? {
+        guard originalFrameCount > maxAnimationFrames else { return nil }
+        return L10n.text(
+            "{0} → {1} コマに間引きました（1周の時間は維持・動きの滑らかさは低下します）",
+            String(originalFrameCount), String(maxAnimationFrames))
     }
 
     private func validate(frameLimit: Int) throws {

@@ -82,7 +82,7 @@ public enum WindowsCursorImporter {
             do {
                 let imported = try cursorRep(
                     from: Data(contentsOf: file), isAnimated: ext == "ani", pixelsPerPoint: pixelsPerPoint
-                ).importingAnimation()
+                )
                 rep = imported.rep
                 if let adjustment = imported.adjustment {
                     adjustments.append("\(file.lastPathComponent): \(adjustment)")
@@ -670,7 +670,9 @@ public enum WindowsCursorImporter {
         var hotspot: CGPoint
     }
 
-    static func cursorRep(from data: Data, isAnimated: Bool, pixelsPerPoint: Int) throws -> CursorRep {
+    static func cursorRep(from data: Data, isAnimated: Bool, pixelsPerPoint: Int) throws -> (
+        rep: CursorRep, adjustment: String?
+    ) {
         let frames: [Frame]
         var durations: [Int]  // 1/60 秒単位。フレームごと
         if isAnimated {
@@ -689,15 +691,8 @@ public enum WindowsCursorImporter {
             throw CursorKitError.invalidCursor(L10n.text("画像 {0}x{1} が --scale {2} で割り切れない", String(describing: width), String(describing: height), String(describing: pixelsPerPoint)))
         }
 
-        // 登録形式は全フレーム同じ間隔なので、間隔が違うなら最小公約数で割ってフレームを繰り返す。
-        var sequence = frames
-        var duration = 0.0
-        if frames.count > 1 {
-            let unit = durations.reduce(0) { gcd($0, $1) }
-            guard unit > 0 else { throw CursorKitError.invalidCursor(L10n.text("フレームの表示時間が 0")) }
-            sequence = zip(frames, durations).flatMap { Array(repeating: $0, count: $1 / unit) }
-            duration = Double(unit) / 60
-        }
+        let timeline = frames.count > 1 ? AnimationTimeline(durations: durations, ticksPerSecond: 60) : nil
+        let sequence = timeline.map { $0.indices.map { frames[$0] } } ?? frames
 
         let size = CGSize(width: width / pixelsPerPoint, height: height / pixelsPerPoint)
         let strip = try stack(sequence.map(\.image))
@@ -709,10 +704,12 @@ public enum WindowsCursorImporter {
                 try resampleStrip(
                     strip, frameCount: sequence.count, to: CGSize(width: size.width * 2, height: size.height * 2)),
             ] : [strip]
-        return CursorRep(
+        let rep = CursorRep(
             size: size,
             hotspot: CGPoint(x: first.hotspot.x / Double(pixelsPerPoint), y: first.hotspot.y / Double(pixelsPerPoint)),
-            frameCount: sequence.count, frameDuration: duration, images: images)
+            frameCount: sequence.count, frameDuration: timeline?.frameDuration ?? 0, images: images)
+        try rep.validate()
+        return (rep, timeline?.adjustment)
     }
 
     /// RIFF 'ACON'。anih(ヘッダー)・rate(ステップごとの 1/60 秒)・seq(ステップ→フレーム番号)・LIST fram の icon。
@@ -820,8 +817,6 @@ public enum WindowsCursorImporter {
         }
         return ctx.makeImage()!
     }
-
-    private static func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
 }
 
 extension Data {

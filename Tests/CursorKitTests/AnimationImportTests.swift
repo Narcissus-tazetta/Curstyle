@@ -163,6 +163,82 @@ final class AnimationImportTests: XCTestCase {
         }
     }
 
+    func testExtremeGIFDelaysPreserveCycleAndFrameSelection() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).gif")
+        defer { try! FileManager.default.removeItem(at: file) }
+        try gifData(delays: [65535, 65534]).write(to: file)
+        let imported = try CursorRep.fromImageFile(file, pointSize: 16)
+        XCTAssertNotNil(imported.adjustment)
+        XCTAssertEqual(imported.rep.frameCount, 24)
+        XCTAssertEqual(imported.rep.frameDuration * 24, 1310.69, accuracy: 1e-9)
+        for strip in imported.rep.images {
+            let height = strip.height / 24
+            for i in 0..<24 {
+                let crop = try XCTUnwrap(
+                    strip.cropping(to: CGRect(x: 0, y: i * height, width: strip.width, height: height)))
+                XCTAssertEqual(rgbaBytes(crop)[0], i <= 12 ? 0 : 255)
+            }
+        }
+        try imported.rep.validate()
+    }
+
+    func testVariableANIDelaysPreserveCycleAndFrameSelection() throws {
+        func cur(_ index: Int) -> Data {
+            let png = NSMutableData()
+            let dest = CGImageDestinationCreateWithData(png, "public.png" as CFString, 1, nil)!
+            CGImageDestinationAddImage(dest, image(index: index, scale: 16), nil)
+            XCTAssertTrue(CGImageDestinationFinalize(dest))
+            var data = Data([0, 0, 2, 0, 1, 0, 32, 32, 0, 0, 0, 0, 0, 0])
+            data += words([UInt32(png.length), 22])
+            data += png as Data
+            return data
+        }
+        func words(_ values: [UInt32]) -> Data {
+            Data(values.flatMap { value in (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) } })
+        }
+        func chunk(_ name: String, _ body: Data) -> Data {
+            Data(name.utf8) + words([UInt32(body.count)]) + body + (body.count % 2 == 1 ? Data([0]) : Data())
+        }
+        for rates: [UInt32] in [[7, 29], [3000, 3001], [UInt32.max - 1, UInt32.max]] {
+            let body =
+                Data("ACON".utf8)
+                + chunk("anih", words([36, 2, 2, 0, 0, 0, 0, 1, 1]))
+                + chunk("rate", words(rates))
+                + chunk("LIST", Data("fram".utf8) + chunk("icon", cur(0)) + chunk("icon", cur(1)))
+            let ani = Data("RIFF".utf8) + words([UInt32(body.count)]) + body
+            let imported = try WindowsCursorImporter.cursorRep(from: ani, isAnimated: true, pixelsPerPoint: 1)
+            XCTAssertNotNil(imported.adjustment)
+            XCTAssertEqual(imported.rep.frameCount, 24)
+            let total = Int(rates[0]) + Int(rates[1])
+            XCTAssertEqual(imported.rep.frameDuration * 24, Double(total) / 60, accuracy: 1e-6)
+            for strip in imported.rep.images {
+                let height = strip.height / 24
+                for i in 0..<24 {
+                    let crop = try XCTUnwrap(
+                        strip.cropping(to: CGRect(x: 0, y: i * height, width: strip.width, height: height)))
+                    XCTAssertEqual(rgbaBytes(crop)[0], i * total / 24 < Int(rates[0]) ? 0 : 1)
+                }
+            }
+            try imported.rep.validate()
+        }
+    }
+
+    func testTimelineMatchesExpandedSamplingIncludingFrameBoundaries() {
+        for durations in [[1, 1], [2, 4], [7, 29], [12, 24, 36], [1, 23, 1], Array(repeating: 3, count: 54)] {
+            let expanded = durations.enumerated().flatMap { Array(repeating: $0.offset, count: $0.element) }
+            let timeline = AnimationTimeline(durations: durations, ticksPerSecond: 60)
+            let count = min(expanded.count, 24)
+            // 最大公約数がある場合は元の最小間隔を保つため、展開後の全コマが必要とは限らない。
+            for (i, index) in timeline.indices.enumerated() {
+                XCTAssertEqual(index, expanded[i * expanded.count / timeline.indices.count])
+            }
+            XCTAssertLessThanOrEqual(timeline.indices.count, count)
+            XCTAssertEqual(
+                timeline.frameDuration * Double(timeline.indices.count), Double(durations.reduce(0, +)) / 60,
+                accuracy: 1e-9)
+        }
+    }
+
     private func gifData(delays: [UInt16]) -> Data {
         // エンコーダーの最適化に入力のコマ数が左右されないよう、GIFを直接組む。
         var gif = Data("GIF89a".utf8)

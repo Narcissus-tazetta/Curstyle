@@ -32,6 +32,7 @@ public final class ThemeLibrary: @unchecked Sendable {
         for dir in dirs where (try? dir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
             do {
                 let theme = try CursorTheme.load(directory: dir)
+                _ = try theme.resolvedPlan()
                 let added = (try? dir.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
                 entries.append(
                     Entry(

@@ -67,7 +67,7 @@ public final class OverlayController {
     /// 本物を表示に戻せなかったとき。プロセスを終了すれば WindowServer が戻す。
     let fatal: (String) -> Never
     private var renderer: OverlayRenderer?
-    private var runningJournalAt: Date?
+    private var runningJournalToken: String?
     private var saveItem: DispatchWorkItem?
     private var lastNotified: String?
 
@@ -123,7 +123,7 @@ public final class OverlayController {
             notifyOnce(L10n.text("ポインターの色がカスタマイズされているため overlay を止めた。色をリセットすると自動で再開する"))
             return
         }
-        if renderer != nil, runningJournalAt == journal.updatedAt { return }
+        if renderer != nil, runningJournalToken == journal.changeToken { return }
         if renderer != nil { stop(reason: L10n.text("テーマが変わった")) }
 
         var state = (try? store.loadHelperState()) ?? HelperState()
@@ -170,7 +170,7 @@ public final class OverlayController {
             r.onStatusChange = { [weak self] in self?.scheduleSave() }
             r.start()
             renderer = r
-            runningJournalAt = journal.updatedAt
+            runningJournalToken = journal.changeToken
             status.running = true
             status.themeName = theme.name
             status.startedAt = Date()
@@ -212,7 +212,7 @@ public final class OverlayController {
     private func stop(reason: String) {
         guard let r = renderer else { return }
         renderer = nil
-        runningJournalAt = nil
+        runningJournalToken = nil
         let visible = r.stop()
         var state = (try? store.loadHelperState()) ?? HelperState()
         var status = state.overlay ?? OverlayStatus()

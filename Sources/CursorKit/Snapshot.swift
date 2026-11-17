@@ -64,6 +64,9 @@ public struct Journal: Codable, Sendable {
     public var intended: [String: String]
     public var updatedAt: Date
     public var backend: Backend = .cgs
+    public var revision: UUID?
+
+    public var changeToken: String { revision?.uuidString ?? String(updatedAt.timeIntervalSince1970) }
 
     public init(
         status: Status, themeName: String?, intended: [String: String], updatedAt: Date, backend: Backend = .cgs
@@ -82,6 +85,7 @@ public struct Journal: Codable, Sendable {
         intended = try c.decode([String: String].self, forKey: .intended)
         updatedAt = try c.decode(Date.self, forKey: .updatedAt)
         backend = try c.decodeIfPresent(Backend.self, forKey: .backend) ?? .cgs
+        revision = try c.decodeIfPresent(UUID.self, forKey: .revision)
     }
 
     public static let clean = Journal(status: .clean, themeName: nil, intended: [:], updatedAt: Date())
@@ -174,6 +178,7 @@ public final class SnapshotStore {
     public func saveJournal(_ journal: Journal) throws {
         var j = journal
         j.updatedAt = Date()
+        j.revision = UUID()
         try encoder.encode(j).write(to: journalURL, options: .atomic)
     }
 

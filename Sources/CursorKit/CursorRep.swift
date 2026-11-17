@@ -47,6 +47,14 @@ public struct CursorRep: Sendable {
         return hasher.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 
+    public func animationFrameIndex(at elapsed: TimeInterval) -> Int {
+        guard frameCount > 1, frameDuration > 0 else { return 0 }
+        // 全経過時間を Int にすると、正当な短いフレーム間隔でも整数範囲を超える。
+        let cycle = frameDuration * Double(frameCount)
+        let phase = elapsed.truncatingRemainder(dividingBy: cycle)
+        return min(Int(phase / frameDuration), frameCount - 1)
+    }
+
     public var summary: String {
         let dims = images.map { "\($0.width)x\($0.height)" }.joined(separator: ",")
         return String(

@@ -40,7 +40,7 @@ struct CursorPreview: View {
             if frames.count > 1, !reduceMotion, rep.frameDuration > 0 {
                 TimelineView(.periodic(from: .now, by: rep.frameDuration)) { context in
                     let index =
-                        Int(context.date.timeIntervalSinceReferenceDate / rep.frameDuration) % frames.count
+                        rep.animationFrameIndex(at: context.date.timeIntervalSinceReferenceDate)
                     frame(frames[index], scale: scale)
                 }
             } else if let first = frames.first {

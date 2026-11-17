@@ -270,7 +270,7 @@ public final class AutoReapply {
             // 上のジャーナルは、ロックを取る前に読んだもの。その間に利用者が restore / apply していたら、
             // 古い判断で入れ直して操作を取り消さないよう、ロックの中で読み直して食い違えば何もしない。
             let applied = try store.withLock { () -> ApplyReport? in
-                guard try store.loadJournal().updatedAt == journal.updatedAt else { return nil }
+                guard try store.loadJournal().changeToken == journal.changeToken else { return nil }
                 return try CursorEngine(backend: backend, store: store).apply(theme)
             }
             guard let applied else {

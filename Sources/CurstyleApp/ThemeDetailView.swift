@@ -173,7 +173,7 @@ struct ThemeDetailView: View {
                     }
                     if let frames = maxFrames, frames > 1 {
                         StatusPill(
-                            text: L10n.text("アニメ {0} コマ", String(describing: frames)), systemImage: "film", tint: .cyan)
+                            text: L10n.text("アニメ {0} コマ", String(describing: frames)), systemImage: "film", tint: Brand.animation)
                     }
                     StatusPill(
                         text: L10n.text("{0} 種類", String(describing: entry.theme.cursors.count)),
@@ -362,7 +362,7 @@ private struct CursorTile: View {
         .cardBackground()
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(isHovered ? 0.5 : 0), lineWidth: 1.5)
+                .strokeBorder(Brand.accent.opacity(isHovered ? 0.5 : 0), lineWidth: 1.5)
         )
         .onHover { isHovered = $0 }
         .motionAnimation(Motion.quick, value: isHovered)

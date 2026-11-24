@@ -294,7 +294,7 @@ struct AnimationSpeedSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                IconTile(systemImage: "speedometer", tint: .purple, size: 34)
+                IconTile(systemImage: "speedometer", tint: Brand.deepViolet, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.text("アニメの速さを一括で変える")).font(.title3.weight(.semibold))
                     Text(L10n.text("{0} 件のアニメに同じ倍率をかけます", String(describing: animatedKeys.count)))

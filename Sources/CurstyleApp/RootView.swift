@@ -131,7 +131,7 @@ private struct BannerView: View {
         switch banner.kind {
         case .success: .green
         case .failure: .orange
-        case .info: .accentColor
+        case .info: Brand.accent
         }
     }
 }
@@ -139,7 +139,7 @@ private struct BannerView: View {
 private struct DropTargetOverlay: View {
     var body: some View {
         ZStack {
-            Color.accentColor.opacity(0.08)
+            Brand.accent.opacity(0.08)
             VStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.down.on.square")
                     .font(.system(size: 40, weight: .light))
@@ -148,11 +148,11 @@ private struct DropTargetOverlay: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Brand.accent)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+                .strokeBorder(Brand.accent, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
                 .padding(8)
         )
         .allowsHitTesting(false)

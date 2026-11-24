@@ -1,6 +1,35 @@
 import CursorKit
 import SwiftUI
 
+/// アプリの差し色。用途ごとに色を分ける: 適用は青、試す・選択はシアン、適用中の状態は緑、アニメ関連は紫。
+enum Brand {
+    /// 適用ボタンの塗り。白い文字が読める濃さにしている。
+    static let blue = Color(red: 0.18, green: 0.44, blue: 0.93)
+    /// 試すボタンの薄い塗りに使うシアン。
+    static let cyan = Color(red: 0.243, green: 0.902, blue: 0.941)
+    /// 白い記号を載せる塗り(アイコンタイル)用。
+    static let deepCyan = Color(red: 0.03, green: 0.52, blue: 0.58)
+    static let deepViolet = Color(red: 0.45, green: 0.36, blue: 0.86)
+
+    // 文字・線・記号用の色は、明るい背景で読めるようライトモードでは濃くする。
+    /// 試す・選択・ホバー・情報。
+    static let accent = adaptive(dark: (0.243, 0.902, 0.941), light: (0.03, 0.48, 0.53))
+    /// 適用中の状態。
+    static let applied = adaptive(dark: (0.33, 0.85, 0.52), light: (0.10, 0.52, 0.26))
+    /// アニメ(コマ数・速さ)。
+    static let animation = adaptive(dark: (0.72, 0.63, 1.0), light: (0.42, 0.30, 0.82))
+
+    private static func adaptive(
+        dark: (CGFloat, CGFloat, CGFloat), light: (CGFloat, CGFloat, CGFloat)
+    ) -> Color {
+        Color(
+            nsColor: NSColor(name: nil) { appearance in
+                let c = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+                return NSColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+            })
+    }
+}
+
 enum Motion {
     static let quick = Animation.easeOut(duration: 0.18)
     static let standard = Animation.spring(response: 0.3, dampingFraction: 0.88)
@@ -72,7 +101,7 @@ struct IconTile: View {
 struct StatusPill: View {
     let text: String
     let systemImage: String
-    var tint: Color = .green
+    var tint: Color = Brand.applied
 
     var body: some View {
         Label(text, systemImage: systemImage)
@@ -154,40 +183,32 @@ struct ThemeActionButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.colorScheme) private var colorScheme
 
-    private var colorful: Bool { primary || tinted }
+    private var fill: Color {
+        if primary { return Brand.blue }
+        if tinted { return Brand.cyan.opacity(colorScheme == .dark ? 0.10 : 0.16) }
+        return Color.primary.opacity(0.08)
+    }
 
-    private var colors: [Color] {
-        if primary {
-            return [Color(red: 0.49, green: 0.46, blue: 0.96), Color(red: 0.35, green: 0.34, blue: 0.86)]
-        }
-        if tinted {
-            return [Color(red: 0.80, green: 0.40, blue: 0.72), Color(red: 0.65, green: 0.32, blue: 0.71)]
-        }
-        let fill = Color.primary.opacity(0.065)
-        return [fill, fill]
+    private var foreground: Color {
+        if primary { return .white }
+        if tinted { return Brand.accent }
+        return .primary
     }
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 16)
-            .frame(height: 30)
-            .foregroundStyle(colorful ? Color.white : Color.primary)
-            .background {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
-            }
+            .font(.system(size: 12, weight: .semibold))
+            .padding(.horizontal, primary ? 14 : 13)
+            .frame(height: 28)
+            .foregroundStyle(foreground)
+            .background(fill, in: Capsule())
             .overlay {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: colorful
-                                ? [Color.white.opacity(contrast == .increased ? 0.6 : 0.32), Color.white.opacity(0.08)]
-                                : [Color.primary.opacity(0.14), Color.primary.opacity(0.08)],
-                            startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                if contrast == .increased {
+                    Capsule().strokeBorder(Color.primary.opacity(0.45), lineWidth: 1)
+                }
             }
-            .shadow(color: .black.opacity(colorful && isEnabled ? 0.12 : 0), radius: 3, y: 2)
             .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.4)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
             .animation(reduceMotion ? nil : Motion.quick, value: configuration.isPressed)

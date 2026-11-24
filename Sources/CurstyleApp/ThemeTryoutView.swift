@@ -315,7 +315,7 @@ struct ThemeTryoutSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                IconTile(systemImage: "wand.and.stars", tint: .purple, size: 34)
+                IconTile(systemImage: "wand.and.stars", tint: Brand.deepCyan, size: 34)
                 Text(L10n.text("テーマを試して整える")).font(.title3.weight(.semibold))
                 Spacer()
                 AppearancePicker(selection: $appearance)

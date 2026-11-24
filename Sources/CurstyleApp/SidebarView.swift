@@ -75,7 +75,7 @@ private struct ThemeRow: View {
             Spacer(minLength: 4)
             if isActive {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Brand.applied)
                     .accessibilityLabel(L10n.text("適用中"))
                     .help(L10n.text("適用中"))
             }
@@ -137,7 +137,7 @@ private struct StatusFooter: View {
             Divider()
             HStack(spacing: 8) {
                 Circle()
-                    .fill(model.journal.status == .applied ? Color.green : Color.secondary.opacity(0.5))
+                    .fill(model.journal.status == .applied ? Brand.applied : Color.secondary.opacity(0.5))
                     .frame(width: 7, height: 7)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {

@@ -263,7 +263,7 @@ struct CursorReplaceSheet: View {
             .cardBackground(cornerRadius: 10)
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.accentColor, lineWidth: selected ? 2 : 0))
+                    .strokeBorder(Brand.accent, lineWidth: selected ? 2 : 0))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(CursorRoles.title(for: candidateKey))

@@ -26,7 +26,9 @@ extension CursorRep {
             throw CursorKitError.invalidCursor(L10n.text("画像が無い"))
         }
         // 1x だけのテーマでも 2x を作る。Retina で OS に 1x を引き伸ばさせると、くっきり拡大した意味がなくなる。
-        let pixelScales = Set(images.map { Int(Double($0.width) / size.width) }).union([2]).sorted().map(Double.init)
+        var scales = Set(images.map { Int(Double($0.width) / size.width) })
+        if scales.count < Self.maxImageRepresentations { scales.insert(2) }
+        let pixelScales = scales.sorted().map(Double.init)
         var rep = self
         rep.size = newSize
         rep.source = largest
@@ -53,26 +55,30 @@ extension CursorRep {
         }
         let isGIF = (CGImageSourceGetType(source) as String?) == "com.compuserve.gif"
         let count = isGIF ? CGImageSourceGetCount(source) : min(CGImageSourceGetCount(source), 1)
-        var frames: [CGImage] = []
-        var delays: [Int] = []  // 1/100 秒単位(GIF の格納単位)
-        for i in 0..<count {
+        guard count > 0 else {
+            throw CursorKitError.io(L10n.text("{0} に画像が無い", String(describing: url.lastPathComponent)))
+        }
+
+        let timeline =
+            count > 1
+            ? AnimationTimeline(durations: (0..<count).map { gifDelay(source, $0) }, ticksPerSecond: 100)
+            : nil
+        // 長い GIF でも、最終的に使うコマだけを展開する。同じコマを繰り返す場合は画像を共有する。
+        var decoded: [Int: CGImage] = [:]
+        let sequence = try (timeline?.indices ?? [0]).map { i -> CGImage in
+            if let image = decoded[i] { return image }
             guard let image = CGImageSourceCreateImageAtIndex(source, i, nil) else {
                 throw CursorKitError.io(
                     L10n.text("{0} のコマ {1} を読めない", String(describing: url.lastPathComponent), String(describing: i)))
             }
-            frames.append(image)
-            if isGIF { delays.append(gifDelay(source, i)) }
+            let normalized = normalizedImage(image)
+            decoded[i] = normalized
+            return normalized
         }
-        guard let first = frames.first else {
-            throw CursorKitError.io(L10n.text("{0} に画像が無い", String(describing: url.lastPathComponent)))
-        }
-        guard frames.allSatisfy({ $0.width == first.width && $0.height == first.height }) else {
+        let first = sequence[0]
+        guard sequence.allSatisfy({ $0.width == first.width && $0.height == first.height }) else {
             throw CursorKitError.invalidCursor(L10n.text("コマごとに画像の大きさが違う"))
         }
-
-        let timeline = frames.count > 1 ? AnimationTimeline(durations: delays, ticksPerSecond: 100) : nil
-        let normalizedFrames = frames.map(normalizedImage)
-        let sequence = timeline.map { $0.indices.map { normalizedFrames[$0] } } ?? normalizedFrames
 
         let longer = Double(max(first.width, first.height))
         let size = CGSize(

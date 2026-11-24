@@ -94,7 +94,9 @@ public final class ThemeLibrary: @unchecked Sendable {
     private func historyCount(in directory: URL) throws -> Int {
         let history = directory.appendingPathComponent(".undo", isDirectory: true)
         guard FileManager.default.fileExists(atPath: history.path) else { return 0 }
-        return try FileManager.default.contentsOfDirectory(at: history, includingPropertiesForKeys: nil).count
+        return try FileManager.default.contentsOfDirectory(
+            at: history, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ).count
     }
 
     private func replace(_ entry: Entry, with theme: CursorTheme, undoing: Bool) throws -> Entry {

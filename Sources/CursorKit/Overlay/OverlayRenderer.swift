@@ -13,14 +13,16 @@ public final class OverlayRenderer {
         public var yieldScenes: [String: Int] = [:]
         public var lastYieldAt: Date?
         public var unknownShapes: Set<String> = []
-        public var yielding = false
+        public var yielding = true
     }
 
     let symbols: OverlaySymbols
     let matcher: ShapeMatcher
     /// 登録名 → テーマの内容
     let plan: [String: CursorRep]
+    private let planHashes: [String: String]
     let log: (String) -> Void
+    private let restoreFailed: (String) -> Never
     public var onStatusChange: (() -> Void)?
     public private(set) var status = Status()
 
@@ -35,8 +37,9 @@ public final class OverlayRenderer {
     private var stillFrames = 0
     private var idleTicks = 0
     private var activationObserver: NSObjectProtocol?
-    private var lastSeed: Int32 = -1
+    private var lastSeed: Int32?
     private var current: (size: CGSize, hotspot: CGPoint, frames: [CGImage], duration: Double)?
+    private var preparedFrames: [String: [CGImage]] = [:]
     private var cursorScale: CGFloat = 1
     private var location = CGPoint.zero
     private var trailing: DispatchWorkItem?
@@ -44,11 +47,14 @@ public final class OverlayRenderer {
     private var eventMaskUnavailableLogged = false
 
     public init(
-        symbols: OverlaySymbols, matcher: ShapeMatcher, plan: [String: CursorRep], log: @escaping (String) -> Void
+        symbols: OverlaySymbols, matcher: ShapeMatcher, plan: [String: CursorRep],
+        restoreFailed: @escaping (String) -> Never = { fatalError($0) }, log: @escaping (String) -> Void
     ) {
         self.symbols = symbols
         self.matcher = matcher
         self.plan = plan
+        self.planHashes = plan.mapValues(\.contentHash)
+        self.restoreFailed = restoreFailed
         self.log = log
         cid = symbols.mainConnection()
     }
@@ -56,7 +62,6 @@ public final class OverlayRenderer {
     public func start() {
         let err = symbols.setProperty(cid, cid, "SetsCursorInBackground" as CFString, kCFBooleanTrue)
         if err != 0 { log(L10n.text("SetsCursorInBackground が err={0} を返した", String(describing: err))) }
-        hide()
         cursorScale = symbols.cursorScale(cid)
         location = NSEvent.mouseLocation
         rebuildWindows()
@@ -85,18 +90,9 @@ public final class OverlayRenderer {
         layers = []
         if let savedEventMask { _ = symbols.setBackgroundEventMask?(cid, savedEventMask) }
         savedEventMask = nil
-        // CGSHideCursor は呼んだ回数だけ数える(隠し直しのたびに増える)ので、同じ回数だけ表示する。
-        for _ in 0..<hideCount { _ = symbols.showCursor(cid) }
-        hideCount = 0
-        // 表示の反映が少し遅れることがあるので、最大 0.5 秒待ってから判定する。
-        var visible = symbols.isCursorVisible
-        let deadline = Date().addingTimeInterval(0.5)
-        while !visible, Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-            visible = symbols.isCursorVisible
-        }
-        log(L10n.text("overlay 停止: 本物の表示={0}", String(describing: visible)))
-        return visible
+        let restored = releaseCursorHides()
+        log(L10n.text("overlay 停止: 本物の表示={0}", String(describing: symbols.isCursorVisible)))
+        return restored
     }
 
     /// 全画面の透明ウィンドウがカーソルの下にあるので、WindowServer はマウスが動くたびに mouseMoved をこのプロセスへ
@@ -120,6 +116,7 @@ public final class OverlayRenderer {
 
     /// ディスプレイの増減・配置の変更のたびに作り直す。
     public func rebuildWindows() {
+        reconcileVisibility(canDraw: false)
         link?.invalidate()
         link = nil
         for w in windows { w.orderOut(nil) }
@@ -148,9 +145,9 @@ public final class OverlayRenderer {
             layers.append(layer)
         }
         stopMouseMovedEvents()
-        lastSeed = -1
-        refreshShape()
-        move()
+        lastSeed = nil
+        location = NSEvent.mouseLocation
+        updateCursor()
         if running { startLink() }
     }
 
@@ -161,9 +158,8 @@ public final class OverlayRenderer {
         if old != cursorScale {
             log(L10n.text("ポインターの拡大率 {0} → {1}", String(describing: old), String(describing: cursorScale)))
         }
-        lastSeed = -1
-        refreshShape()
-        move()
+        lastSeed = nil
+        updateCursor()
     }
 
     /// マウスの位置は NSEvent.mouseLocation を読んで取る。launchd から起動したヘルパーでは、許可なしだと
@@ -215,6 +211,7 @@ public final class OverlayRenderer {
             location = p
             mouseEvent()
         } else {
+            if symbols.cursorSeed() != lastSeed { updateCursor() }
             stillFrames += 1
             if stillFrames >= Self.framesBeforeIdle { goIdle() }
         }
@@ -226,8 +223,7 @@ public final class OverlayRenderer {
             linkTick()
             return
         }
-        reconcileVisibility()
-        refreshShape()
+        updateCursor()
         // ポインターのサイズは設定ファイルの変更通知でも拾うが、取りこぼしに備えて止まっている間に1秒ごとに確かめる。
         idleTicks += 1
         if idleTicks % 15 == 0 {
@@ -237,15 +233,17 @@ public final class OverlayRenderer {
         }
     }
 
-    private func hide() {
-        _ = symbols.hideCursor(cid)
-        hideCount += 1
+    private func releaseCursorHides() -> Bool {
+        // 別アプリが隠している場合もあるため、ここではこの接続の hide だけを相殺する。
+        while hideCount > 0 {
+            guard symbols.showCursor(cid) == 0 else { return false }
+            hideCount -= 1
+        }
+        return true
     }
 
     private func mouseEvent() {
-        reconcileVisibility()
-        refreshShape()
-        move()
+        updateCursor()
         scheduleTrailingChecks()
     }
 
@@ -264,8 +262,7 @@ public final class OverlayRenderer {
 
     private func trailingCheck(remaining: [TimeInterval]) {
         guard running else { return }
-        reconcileVisibility()
-        refreshShape()
+        updateCursor()
         let rest = Array(remaining.dropFirst())
         guard let next = rest.first else { return }
         let item = DispatchWorkItem { [weak self] in
@@ -276,7 +273,7 @@ public final class OverlayRenderer {
     }
 
     private func appActivated() {
-        reconcileVisibility(force: true)
+        updateCursor(force: true)
         // 切替先のアプリが通知より後で表示し直すことがある(Claude は +20/+50ms で実測)ので、1秒間だけ見張る。
         watchVisibility(until: ProcessInfo.processInfo.systemUptime + 1)
     }
@@ -285,24 +282,37 @@ public final class OverlayRenderer {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, self.running else { return }
-                if self.symbols.isCursorVisible { self.reconcileVisibility(force: true) }
+                if self.symbols.isCursorVisible { self.updateCursor() }
                 if ProcessInfo.processInfo.systemUptime < deadline { self.watchVisibility(until: deadline) }
             }
         }
     }
 
-    /// 本物が表示に戻っていたら隠し直す(100ms に1回まで。yield 中は1秒に1回)。隠し直しても表示のままなら自前を透明にする。
-    private func reconcileVisibility(force: Bool = false) {
+    private func updateCursor(force: Bool = false) {
+        refreshShape()
+        let canDraw = move()
+        reconcileVisibility(canDraw: canDraw, force: force)
+    }
+
+    private func reconcileVisibility(canDraw: Bool, force: Bool = false) {
+        guard canDraw else {
+            guard releaseCursorHides() else { restoreFailed(L10n.text("overlay: 本物のカーソルを表示に戻せません")) }
+            setYielding(true)
+            return
+        }
         if symbols.isCursorVisible {
             let now = ProcessInfo.processInfo.systemUptime
-            // 隠せない場面(yield 中)は CGSHideCursor の回数が積み上がるだけなので、試す間隔を広げる。
-            let interval = status.yielding ? 1.0 : 0.1
+            let interval = status.yielding && hideCount > 0 ? 1.0 : 0.1
             if force || now - lastRehide > interval {
                 lastRehide = now
-                hide()
+                if symbols.hideCursor(cid) == 0 { hideCount += 1 }
             }
         }
-        let yield = symbols.isCursorVisible
+        // 別アプリが先に隠したカーソルは、自前の画像で表示し直さない。
+        setYielding(hideCount == 0 || symbols.isCursorVisible)
+    }
+
+    private func setYielding(_ yield: Bool) {
         guard yield != status.yielding else { return }
         status.yielding = yield
         if yield {
@@ -318,20 +328,39 @@ public final class OverlayRenderer {
     private func refreshShape() {
         let seed = symbols.cursorSeed()
         guard seed != lastSeed else { return }
-        lastSeed = seed
-        guard let cursor = NSCursor.currentSystem else { return }
-        let (name, key) = matcher.name(for: cursor)
-        if let name, let rep = plan[name] {
-            current = (rep.size, rep.hotspot, Self.frames(of: rep), rep.frameDuration)
-        } else {
-            if name == nil, status.unknownShapes.count < 200, status.unknownShapes.insert(key).inserted {
-                onStatusChange?()
-            }
-            // テーマに無い形・照合できない形は、いま OS が出している画像をそのまま描く(= 標準の見た目)。
-            guard let image = ShapeMatcher.largestImage(cursor.image) else { return }
-            current = (cursor.image.size, cursor.hotSpot, [image], 0)
+        guard let cursor = NSCursor.currentSystem else {
+            recordUnknownShape("no-system-cursor")
+            lastSeed = nil
+            current = nil
+            return
         }
+        lastSeed = seed
+        let (names, key) = matcher.names(for: cursor)
+        guard let name = ShapeMatcher.themedName(for: names, hashes: planHashes), let rep = plan[name] else {
+            if names.isEmpty || names.count > 1 && names.contains(where: { plan[$0] != nil }) {
+                recordUnknownShape(key)
+            }
+            current = nil
+            return
+        }
+        if preparedFrames[name] == nil {
+            let frames = rep.previewFrames().frames
+            preparedFrames[name] =
+                frames.count == rep.frameCount && frames.allSatisfy(\.hasVisibleCursorPixels) ? frames : []
+        }
+        let frames = preparedFrames[name]!
+        guard !frames.isEmpty else {
+            current = nil
+            return
+        }
+        current = (rep.size, rep.hotspot, frames, rep.frameDuration)
         apply()
+    }
+
+    private func recordUnknownShape(_ key: String) {
+        if status.unknownShapes.count < 200, status.unknownShapes.insert(key).inserted {
+            onStatusChange?()
+        }
     }
 
     private func apply() {
@@ -358,25 +387,44 @@ public final class OverlayRenderer {
         CATransaction.commit()
     }
 
-    private func move() {
+    private func move() -> Bool {
+        guard let current else { return false }
+        let bounds = CGRect(
+            x: location.x - current.hotspot.x * cursorScale,
+            y: location.y - (current.size.height - current.hotspot.y) * cursorScale,
+            width: current.size.width * cursorScale, height: current.size.height * cursorScale)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        var covered: [CGRect] = []
         for (w, layer) in zip(windows, layers) {
             let f = w.frame
-            layer.isHidden = !f.insetBy(dx: -1, dy: -1).contains(location)
+            let intersects = w.isVisible && f.intersects(bounds)
+            layer.isHidden = !intersects
             layer.position = CGPoint(x: location.x - f.minX, y: location.y - f.minY)
+            if intersects { covered.append(f) }
         }
         CATransaction.commit()
+        return Self.isCovered(bounds, by: covered)
     }
 
-    /// 縦に並んだフレームを切り出す。最大解像度の画像を使い、layer の拡縮に任せる。
-    static func frames(of rep: CursorRep) -> [CGImage] {
-        guard let image = rep.images.max(by: { $0.width < $1.width }) else { return [] }
-        guard rep.frameCount > 1 else { return [image] }
-        let h = image.height / rep.frameCount
-        return (0..<rep.frameCount).compactMap {
-            image.cropping(to: CGRect(x: 0, y: $0 * h, width: image.width, height: h))
+    nonisolated static func isCovered(_ bounds: CGRect, by displays: [CGRect]) -> Bool {
+        if displays.contains(where: { $0.contains(bounds) }) { return true }
+        // Uneven display arrangements can leave holes inside their combined bounding box.
+        var uncovered = [bounds]
+        for display in displays {
+            uncovered = uncovered.flatMap { rect in
+                let overlap = rect.intersection(display)
+                guard !overlap.isEmpty else { return [rect] }
+                return [
+                    CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: overlap.minY - rect.minY),
+                    CGRect(x: rect.minX, y: overlap.maxY, width: rect.width, height: rect.maxY - overlap.maxY),
+                    CGRect(x: rect.minX, y: overlap.minY, width: overlap.minX - rect.minX, height: overlap.height),
+                    CGRect(x: overlap.maxX, y: overlap.minY, width: rect.maxX - overlap.maxX, height: overlap.height),
+                ].filter { !$0.isEmpty }
+            }
+            if uncovered.isEmpty { return true }
         }
+        return false
     }
 }
 

@@ -195,9 +195,9 @@ public final class AutoReapply {
         let lost: [String]
         do {
             backend = try makeBackend()
-            let states = try CursorEngine(backend: backend, store: store).states()
-            let themed = Set(states.filter { $0.state == .themed }.map(\.name))
-            lost = journal.intended.keys.filter { !themed.contains($0) }.sorted()
+            lost = try journal.intended.keys.sorted().filter { name in
+                try backend.read(name).hash != journal.intended[name]
+            }
         } catch {
             notifyOnce(L10n.text("カーソルの状態を読めない: {0}", String(describing: error)))
             return L10n.text("状態を読めない: {0}", String(describing: error))

@@ -101,7 +101,11 @@ trap restore_bundles EXIT
 while IFS= read -r bundle; do
   mv "$bundle" "$bundle.hidden"
   echo "$bundle.hidden" >> "$HIDDEN_LIST"
-done < <(find "$SCRATCH" -name Curstyle_CursorKit.bundle -type d -prune)
+done < <(
+  APP_DIR="$(cd "$APP" && pwd -P)"
+  SCRATCH_DIR="$(cd "$SCRATCH" && pwd -P)"
+  find "$SCRATCH_DIR" -path "$APP_DIR" -prune -o -name Curstyle_CursorKit.bundle -type d -prune -print
+)
 if [[ ! -s "$HIDDEN_LIST" ]]; then
   echo "ビルド先に Curstyle_CursorKit.bundle が見つからない" >&2
   exit 1

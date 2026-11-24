@@ -34,6 +34,25 @@ public struct CursorTheme: Sendable {
         return plan.keys.sorted().map { ($0, plan[$0]!.rep) }
     }
 
+    func visiblePlan() throws -> [(name: String, rep: CursorRep)] {
+        let plan = try resolvedPlan()
+        var checked: [ObjectIdentifier: Set<Int>] = [:]
+        for (name, rep) in plan {
+            for image in rep.images where checked[ObjectIdentifier(image), default: []].insert(rep.frameCount).inserted
+            {
+                let height = image.height / rep.frameCount
+                for index in 0..<rep.frameCount {
+                    let rect = CGRect(x: 0, y: index * height, width: image.width, height: height)
+                    guard let frame = image.cropping(to: rect), frame.hasVisibleCursorPixels else {
+                        throw CursorKitError.theme(
+                            L10n.text("{0} の {1} コマ目が透明なので適用できません。", name, String(index + 1)))
+                    }
+                }
+            }
+        }
+        return plan
+    }
+
     /// テーマディレクトリ: theme.json と PNG。
     /// ```
     /// { "name": "...", "cursors": { "arrow": { "size": [w, h], "hotspot": [x, y],

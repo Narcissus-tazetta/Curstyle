@@ -132,6 +132,9 @@ public final class CursorEngine {
     /// ポインター色のカスタマイズ中は拒否する。この状態ではテーマが表示されないうえ、色付きの画像を
     /// 標準として取り込んでしまい、色をリセットするとシステムが ArrowS / IBeamS / cursor.13 を上書きする(実測)。
     public func refreshSnapshot() throws {
+        let journal = try store.loadJournal()
+        // 適用途中の名前には前後どちらのテーマも残り得るので、新しいハッシュと違っても標準画像とは限らない。
+        try journal.requireCompletedApplication()
         if CursorEnvironment.current().cursorIsCustomized == true {
             throw CursorKitError.busy(
                 L10n.text(
@@ -139,7 +142,6 @@ public final class CursorEngine {
                 )
             )
         }
-        let journal = try store.loadJournal()
         let existing = try store.loadManifest()
         let env = CursorEnvironment.current()
         var entries: [String: (result: ReadResult, capturedAt: Date, environment: CursorEnvironment)] = [:]
@@ -203,7 +205,7 @@ public final class CursorEngine {
     /// 1つでも失敗したら、この適用で触った名前をスナップショットへ戻す。
     public func apply(_ theme: CursorTheme) throws -> ApplyReport {
         let env = CursorEnvironment.current()
-        let plan = try theme.resolvedPlan()
+        let plan = try theme.visiblePlan()
         let previous = try store.loadJournal()
         try refreshSnapshot()
 

@@ -70,6 +70,7 @@ public struct CursorRep: Sendable {
 
     // SLSRegisterCursorWithImages2 は25コマ以上をエラー1000で拒否する。
     static let maxAnimationFrames = 24
+    static let maxImageRepresentations = 8
 
     func importingAnimation() throws -> (rep: CursorRep, adjustment: String?) {
         try validate(frameLimit: max(frameCount, Self.maxAnimationFrames))
@@ -125,7 +126,7 @@ public struct CursorRep: Sendable {
                 throw fail(L10n.text("frameDuration={0} は Float32 で表せる正の有限な秒数で指定する", String(describing: frameDuration)))
             }
         }
-        guard !images.isEmpty, images.count <= 8 else {
+        guard !images.isEmpty, images.count <= Self.maxImageRepresentations else {
             throw fail(L10n.text("画像の数 {0} は 1〜8 の範囲外", String(describing: images.count)))
         }
         var scales = Set<Int>()
@@ -202,6 +203,21 @@ func rgbaBytes(_ image: CGImage) -> Data {
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
     }
     return data
+}
+
+extension CGImage {
+    public var hasVisibleCursorPixels: Bool {
+        switch alphaInfo {
+        case .none, .noneSkipFirst, .noneSkipLast:
+            return true
+        default:
+            let bytes = rgbaBytes(self)
+            return bytes.withUnsafeBytes { raw in
+                let pixels = raw.bindMemory(to: UInt8.self)
+                return stride(from: 3, to: pixels.count, by: 4).contains { pixels[$0] != 0 }
+            }
+        }
+    }
 }
 
 func imageHash(_ image: CGImage) -> String {

@@ -14,6 +14,8 @@ public enum OverlayActivation {
     /// CGSBackend のテーマが残っていれば先に標準へ戻す(NSCursor.currentSystem が標準画像を返すようにするため)。
     /// 戻り値は利用者に見せる補足。
     public static func apply(_ theme: CursorTheme, store: SnapshotStore) throws -> [String] {
+        let previous = try store.loadJournal()
+        try previous.requireCompletedApplication()
         if CursorEnvironment.current().cursorIsCustomized == true {
             throw CursorKitError.busy(
                 L10n.text(
@@ -22,9 +24,8 @@ public enum OverlayActivation {
             )
         }
         _ = try OverlaySymbols()
-        _ = try theme.resolvedPlan()
+        _ = try theme.visiblePlan()
         var notes: [String] = []
-        let previous = try store.loadJournal()
         if previous.backend == .cgs, !previous.intended.isEmpty {
             let report = try Recovery(backend: try CGSBackend(), store: store).restore(
                 names: Array(previous.intended.keys))
@@ -166,7 +167,9 @@ public final class OverlayController {
             let plan = Dictionary(uniqueKeysWithValues: try theme.resolvedPlan().map { ($0.name, $0.rep) })
             let symbols = try OverlaySymbols()
             let matcher = buildMatcher()
-            let r = OverlayRenderer(symbols: symbols, matcher: matcher, plan: plan) { [log] in log("[overlay] \($0)") }
+            let r = OverlayRenderer(symbols: symbols, matcher: matcher, plan: plan, restoreFailed: fatal) { [log] in
+                log("[overlay] \($0)")
+            }
             r.onStatusChange = { [weak self] in self?.scheduleSave() }
             r.start()
             renderer = r
@@ -250,8 +253,6 @@ public final class OverlayController {
         }
     }
 
-    /// 照合元は、CGS で読んだ現在の標準 → スナップショット → AppKit のファクトリの順。
-    /// 先に入れたものが優先される。
     private func buildMatcher() -> ShapeMatcher {
         let matcher = ShapeMatcher()
         do {

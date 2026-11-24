@@ -24,6 +24,7 @@ final class ThemeHistoryTests: XCTestCase {
         entry = try library.update(entry, with: edited)
         edited = try edited.scalingSize(by: 2)
         entry = try library.update(entry, with: edited)
+        try Data().write(to: entry.directory.appendingPathComponent(".undo/.DS_Store"))
         let reopened = try ThemeLibrary(root: root)
         entry = try XCTUnwrap(reopened.load().entries.first)
         XCTAssertEqual(entry.undoCount, 2)

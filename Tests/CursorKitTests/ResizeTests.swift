@@ -5,6 +5,21 @@ import XCTest
 @testable import CursorKit
 
 final class ResizeTests: XCTestCase {
+    func testResizePreservesValidThemeWithEightScalesAndNoRetinaImage() throws {
+        var rep = try pixelArtRep()
+        let original = rep.images[0]
+        let scales = [1, 3, 4, 5, 6, 7, 8, 9]
+        rep.images = try scales.map { scale in
+            try resampleStrip(original, frameCount: rep.frameCount, to: CGSize(width: 32 * scale, height: 32 * scale))
+        }
+        try rep.validate()
+
+        let resized = try rep.scalingSize(by: 0.5)
+
+        try resized.validate()
+        XCTAssertEqual(resized.images.map(\.width), scales.map { 16 * $0 })
+    }
+
     func testResizingASavedThemeAgainMatchesResizingTheOriginalOnce() throws {
         let original = CursorTheme(name: "Pixel", cursors: ["arrow": try pixelArtRep()])
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

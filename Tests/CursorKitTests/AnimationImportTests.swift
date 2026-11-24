@@ -6,6 +6,21 @@ import XCTest
 @testable import CursorKit
 
 final class AnimationImportTests: XCTestCase {
+    func testWindowsImportKeepsOriginalResolutionAtThreeAndFourPixelsPerPoint() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try! FileManager.default.removeItem(at: directory) }
+        try curData(index: 0, scale: 24).write(to: directory.appendingPathComponent("Normal.cur"))
+        for scale in [3, 4] {
+            let imported = try WindowsCursorImporter.importTheme(
+                directory: directory, name: "Windows", pixelsPerPoint: scale)
+            let rep = try XCTUnwrap(imported.theme.cursors["arrow"])
+            XCTAssertEqual(rep.size.width, Double(48 / scale))
+            XCTAssertEqual(rep.images.map(\.width), [48 / scale, 48])
+            try rep.validate()
+        }
+    }
+
     func testArbitraryFrameCountsPreserveCycleAndSampleTheOriginalTimeline() throws {
         for count in [2, 23, 24, 25, 26, 30, 47, 48, 49, 54, 59, 60, 61, 97, 100, 127, 144, 255, 256, 257, 1000] {
             let inputDuration = 1.0 / 60
@@ -183,19 +198,6 @@ final class AnimationImportTests: XCTestCase {
     }
 
     func testVariableANIDelaysPreserveCycleAndFrameSelection() throws {
-        func cur(_ index: Int) -> Data {
-            let png = NSMutableData()
-            let dest = CGImageDestinationCreateWithData(png, "public.png" as CFString, 1, nil)!
-            CGImageDestinationAddImage(dest, image(index: index, scale: 16), nil)
-            XCTAssertTrue(CGImageDestinationFinalize(dest))
-            var data = Data([0, 0, 2, 0, 1, 0, 32, 32, 0, 0, 0, 0, 0, 0])
-            data += words([UInt32(png.length), 22])
-            data += png as Data
-            return data
-        }
-        func words(_ values: [UInt32]) -> Data {
-            Data(values.flatMap { value in (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) } })
-        }
         func chunk(_ name: String, _ body: Data) -> Data {
             Data(name.utf8) + words([UInt32(body.count)]) + body + (body.count % 2 == 1 ? Data([0]) : Data())
         }
@@ -204,7 +206,10 @@ final class AnimationImportTests: XCTestCase {
                 Data("ACON".utf8)
                 + chunk("anih", words([36, 2, 2, 0, 0, 0, 0, 1, 1]))
                 + chunk("rate", words(rates))
-                + chunk("LIST", Data("fram".utf8) + chunk("icon", cur(0)) + chunk("icon", cur(1)))
+                + chunk(
+                    "LIST",
+                    Data("fram".utf8) + chunk("icon", curData(index: 0, scale: 16))
+                        + chunk("icon", curData(index: 1, scale: 16)))
             let ani = Data("RIFF".utf8) + words([UInt32(body.count)]) + body
             let imported = try WindowsCursorImporter.cursorRep(from: ani, isAnimated: true, pixelsPerPoint: 1)
             XCTAssertNotNil(imported.adjustment)
@@ -237,6 +242,22 @@ final class AnimationImportTests: XCTestCase {
                 timeline.frameDuration * Double(timeline.indices.count), Double(durations.reduce(0, +)) / 60,
                 accuracy: 1e-9)
         }
+    }
+
+    private func curData(index: Int, scale: Int) -> Data {
+        let frame = image(index: index, scale: scale)
+        let png = NSMutableData()
+        let dest = CGImageDestinationCreateWithData(png, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(dest, frame, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(dest))
+        var data = Data([0, 0, 2, 0, 1, 0, UInt8(frame.width), UInt8(frame.height), 0, 0, 0, 0, 0, 0])
+        data += words([UInt32(png.length), 22])
+        data += png as Data
+        return data
+    }
+
+    private func words(_ values: [UInt32]) -> Data {
+        Data(values.flatMap { value in (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) } })
     }
 
     private func gifData(delays: [UInt16]) -> Data {

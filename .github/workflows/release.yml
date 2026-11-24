@@ -64,6 +64,16 @@ jobs:
                     --title "v${{ inputs.version }}" \
                     --notes-file "release-notes/v${{ inputs.version }}.md"
 
+            # 配布物の公開前に出すとまだ無い zip を取りに行き、tap の更新後まで待つと tap の障害で Sparkle も止まる。
+            - name: Commit appcast
+              run: |
+                  git config user.name github-actions
+                  git config user.email github-actions@github.com
+                  git add docs/appcast.xml
+                  git commit -m "chore: update appcast v${{ inputs.version }}"
+                  git pull --rebase origin main
+                  git push origin HEAD:main
+
             - name: Publish Homebrew cask
               env:
                   HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -75,13 +85,3 @@ jobs:
                     exit 0
                   fi
                   ./scripts/publish-homebrew-cask.sh "${{ inputs.version }}"
-
-            # appcast は配布物が公開された後に push する。先に出すと、まだ無い zip を取りに行く更新が走る。
-            - name: Commit appcast
-              run: |
-                  git config user.name github-actions
-                  git config user.email github-actions@github.com
-                  git add docs/appcast.xml
-                  git commit -m "chore: update appcast v${{ inputs.version }}"
-                  git pull --rebase origin main
-                  git push origin HEAD:main

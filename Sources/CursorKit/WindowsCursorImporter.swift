@@ -696,14 +696,15 @@ public enum WindowsCursorImporter {
 
         let size = CGSize(width: width / pixelsPerPoint, height: height / pixelsPerPoint)
         let strip = try stack(sequence.map(\.image))
-        // 1px = 1pt のときは Retina 用の 2x を足す。OS に 1x を引き伸ばさせるとドット絵がにじむ。
-        let images =
-            pixelsPerPoint == 1
-            ? [
-                strip,
-                try resampleStrip(
-                    strip, frameCount: sequence.count, to: CGSize(width: size.width * 2, height: size.height * 2)),
-            ] : [strip]
+        var images = [strip]
+        if pixelsPerPoint == 1 {
+            // OS に 1x を引き伸ばさせるとドット絵がにじむので、Retina 用の画像を作る。
+            images.append(try resampleStrip(
+                strip, frameCount: sequence.count, to: CGSize(width: size.width * 2, height: size.height * 2)))
+        } else if pixelsPerPoint > 2 {
+            // 元の高解像度画像を残しつつ、登録形式が要求する 1x または 2x も用意する。
+            images.insert(try resampleStrip(strip, frameCount: sequence.count, to: size), at: 0)
+        }
         let rep = CursorRep(
             size: size,
             hotspot: CGPoint(x: first.hotspot.x / Double(pixelsPerPoint), y: first.hotspot.y / Double(pixelsPerPoint)),
@@ -753,10 +754,14 @@ public enum WindowsCursorImporter {
         try walk(12, data.count)
 
         guard let header else { throw CursorKitError.invalidCursor(L10n.text("anih が無い")) }
-        let decoded = try icons.map(parseCUR)
-        let order = seq ?? Array(0..<header.steps)
-        guard order.count == header.steps, order.allSatisfy({ decoded.indices.contains($0) }) else {
-            throw CursorKitError.invalidCursor(L10n.text("ステップ数 {0} とフレーム数 {1} が合わない", String(describing: header.steps), String(describing: decoded.count)))
+        let hasValidOrder = seq.map { steps in
+            steps.count == header.steps && steps.allSatisfy { icons.indices.contains($0) }
+        } ?? (header.steps <= icons.count)
+        guard hasValidOrder else {
+            throw CursorKitError.invalidCursor(
+                L10n.text(
+                    "ステップ数 {0} とフレーム数 {1} が合わない", String(describing: header.steps),
+                    String(describing: icons.count)))
         }
         if let rate, rate.count < header.steps {
             throw CursorKitError.invalidCursor(
@@ -766,6 +771,8 @@ public enum WindowsCursorImporter {
         }
         let durations = (0..<header.steps).map { rate?[$0] ?? header.jiffies }
         guard durations.allSatisfy({ $0 > 0 }) else { throw CursorKitError.invalidCursor(L10n.text("表示時間が 0 のステップがある")) }
+        let decoded = try icons.map(parseCUR)
+        let order = seq ?? Array(0..<header.steps)
         return (order.map { decoded[$0] }, durations)
     }
 

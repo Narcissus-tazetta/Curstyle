@@ -68,6 +68,13 @@ public struct Journal: Codable, Sendable {
 
     public var changeToken: String { revision?.uuidString ?? String(updatedAt.timeIntervalSince1970) }
 
+    func requireCompletedApplication() throws {
+        guard status != .applying else {
+            throw CursorKitError.busy(
+                L10n.text("前回の適用が途中で止まっています。「標準に戻す」か `curstyle restore` を実行してください。"))
+        }
+    }
+
     public init(
         status: Status, themeName: String?, intended: [String: String], updatedAt: Date, backend: Backend = .cgs
     ) {

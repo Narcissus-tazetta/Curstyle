@@ -230,7 +230,7 @@ extension Diagnostics {
         if status.unknownShapes > 0 {
             report.add(
                 .ok, L10n.text("overlay: 照合できなかった形"),
-                L10n.text("{0} 種類(標準の見た目のまま描いた。アプリ独自のカーソルやスクリーンショットの十字など)", String(describing: status.unknownShapes)))
+                L10n.text("{0} 種類(照合できないか、候補を区別できなかったため、元のカーソルを表示)", String(describing: status.unknownShapes)))
         }
     }
 

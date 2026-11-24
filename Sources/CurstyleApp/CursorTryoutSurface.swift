@@ -55,6 +55,7 @@ struct PointerTracker: NSViewRepresentable {
         view.onMove = onMove
         view.onClick = onClick
         view.onPressChange = onPressChange
+        view.refreshCursor()
     }
 
     static let blankCursor: NSCursor = {
@@ -90,9 +91,19 @@ struct PointerTracker: NSViewRepresentable {
 
         private func track(_ event: NSEvent) {
             let p = point(event)
+            guard visibleRect.contains(p) else {
+                leave()
+                return
+            }
             isInside = true
             cursorAt(p, isPressed).set()
             onMove(p)
+        }
+
+        func refreshCursor() {
+            guard isInside, let window, window.isKeyWindow else { return }
+            let p = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            if visibleRect.contains(p) { cursorAt(p, isPressed).set() }
         }
 
         override func mouseEntered(with event: NSEvent) { track(event) }
@@ -124,6 +135,7 @@ struct PointerTracker: NSViewRepresentable {
             setPressed(false)
             guard isInside else { return }
             isInside = false
+            if window?.isKeyWindow == true { NSCursor.arrow.set() }
             onMove(nil)
         }
 
@@ -195,10 +207,18 @@ struct TryoutSurface: View {
         return columns[min(max(index, 0), columns.count - 1)]
     }
 
+    private func drawableRep(at point: CGPoint, in size: CGSize, role: TryoutRole) -> CursorRep? {
+        guard size.width > 0, let rep = reps(at: point, width: size.width)[role] else { return nil }
+        let frame = CGRect(
+            origin: CGPoint(x: point.x - rep.hotspot.x, y: point.y - rep.hotspot.y), size: rep.size)
+        let insideCorners = CGRect(origin: .zero, size: size).insetBy(dx: 12, dy: 12)
+        return insideCorners.contains(frame) && FrameCache.shared.canUseAsPointer(rep) ? rep : nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             GeometryReader { proxy in
-                let width = proxy.size.width
+                let size = proxy.size
                 ZStack(alignment: .topLeading) {
                     if !others.isEmpty {
                         HStack(spacing: 0) {
@@ -222,7 +242,7 @@ struct TryoutSurface: View {
                     PointerTracker(
                         cursorAt: { point, pressed in
                             let role = role(at: point, pressed: pressed)
-                            return reps(at: point, width: width)[role] == nil
+                            return drawableRep(at: point, in: size, role: role) == nil
                                 ? systemCursor(role) : PointerTracker.blankCursor
                         },
                         onMove: { pointer = $0 },
@@ -237,7 +257,9 @@ struct TryoutSurface: View {
                             .id(click.id)
                             .allowsHitTesting(false)
                     }
-                    if let pointer, let rep = reps(at: pointer, width: width)[role(at: pointer, pressed: pressed)] {
+                    if let pointer,
+                        let rep = drawableRep(at: pointer, in: size, role: role(at: pointer, pressed: pressed))
+                    {
                         CursorPreview(rep: rep, zoom: 1)
                             .offset(x: pointer.x - rep.hotspot.x, y: pointer.y - rep.hotspot.y)
                             .allowsHitTesting(false)

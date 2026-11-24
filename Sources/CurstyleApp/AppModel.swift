@@ -166,21 +166,23 @@ final class AppModel {
         defer { busyMessage = nil }
         await Task.yield()
         do {
-            if journal.backend == .overlay {
-                try store.withLock { try store.saveJournal(.clean) }
-                OverlayActivation.postChanged()
-                show(.success, L10n.text("標準のカーソルに戻しました"), L10n.text("overlay 方式の描画を止めるよう、ヘルパーに伝えました。"))
-            } else {
-                let report = try store.withLock {
-                    try Recovery(backend: try CGSBackend(), store: store).restore()
+            let report = try store.withLock { () -> RestoreReport? in
+                if try store.loadJournal().backend == .overlay {
+                    try store.saveJournal(.clean)
+                    return nil
                 }
-                OverlayActivation.postChanged()
+                return try Recovery(backend: try CGSBackend(), store: store).restore()
+            }
+            OverlayActivation.postChanged()
+            if let report {
                 if report.succeeded {
                     show(.success, L10n.text("標準のカーソルに戻しました"), L10n.text("すべての名前がスナップショットと一致しました。"))
                 } else {
                     let failed = report.results.filter { $0.outcome == .failed || !$0.readbackMatches }.map(\.name)
                     show(.failure, L10n.text("一部を戻せませんでした"), failed.joined(separator: ", "))
                 }
+            } else {
+                show(.success, L10n.text("標準のカーソルに戻しました"), L10n.text("overlay 方式の描画を止めるよう、ヘルパーに伝えました。"))
             }
         } catch {
             show(.failure, L10n.text("標準に戻せませんでした"), "\(error)")

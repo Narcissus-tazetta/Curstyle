@@ -8,6 +8,7 @@ import SwiftUI
 final class FrameCache {
     static let shared = FrameCache()
     private var frames: [ObjectIdentifier: (source: CGImage, frameCount: Int, frames: [CGImage], scale: Int)] = [:]
+    private var pointerVisibility: [ObjectIdentifier: Bool] = [:]
     private var order: [ObjectIdentifier] = []
     /// 試用で倍率を動かすたびに新しい画像ができるので、保持数に上限を置く。
     private let limit = 96
@@ -19,8 +20,23 @@ final class FrameCache {
         let made = rep.previewFrames()
         if frames[key] == nil { order.append(key) }
         frames[key] = (source, rep.frameCount, made.frames, made.scale)
-        if order.count > limit { frames[order.removeFirst()] = nil }
+        pointerVisibility[key] = nil
+        if order.count > limit {
+            let removed = order.removeFirst()
+            frames[removed] = nil
+            pointerVisibility[removed] = nil
+        }
         return made
+    }
+
+    func canUseAsPointer(_ rep: CursorRep) -> Bool {
+        guard let source = rep.images.max(by: { $0.width < $1.width }) else { return false }
+        let key = ObjectIdentifier(source)
+        let frames = frames(for: rep).frames
+        if let visible = pointerVisibility[key] { return visible }
+        let visible = frames.count == rep.frameCount && frames.allSatisfy(\.hasVisibleCursorPixels)
+        pointerVisibility[key] = visible
+        return visible
     }
 }
 

@@ -112,7 +112,7 @@
 "{0} 回(その間は標準カーソルを表示。最前面アプリ別: {1})。Mission Control・Command+Shift+4・Dock の上では想定どおり" = "{0} times (defaults were shown instead; by frontmost app: {1}). Expected in Mission Control, screenshot selection, and the Dock.";
 "{0} 回目の register({1})" = "Registration {0} ({1})";
 "{0} 種類" = "{0} cursors";
-"{0} 種類(標準の見た目のまま描いた。アプリ独自のカーソルやスクリーンショットの十字など)" = "{0} shapes (drawn with their default appearance, including app-specific cursors and screenshot crosshairs)";
+"{0} 種類(照合できないか、候補を区別できなかったため、元のカーソルを表示)" = "{0} shapes (the original cursor was shown because it could not be matched to a single theme image)";
 "{0} 種類{1}" = "{0} cursors{1}";
 "{0}(Curstyle が差し替えない名前)" = "{0} (not replaced by Curstyle)";
 "{0}(overlay 方式)" = "{0} (overlay)";
@@ -505,3 +505,7 @@
 "編集を元に戻しました" = "Undid the last edit";
 
 "編集を元に戻せませんでした" = "Could not undo the edit";
+
+"前回の適用が途中で止まっています。「標準に戻す」か `curstyle restore` を実行してください。" = "The previous application was interrupted. Choose Restore Defaults or run `curstyle restore`.";
+
+"{0} の {1} コマ目が透明なので適用できません。" = "Cannot apply {0}: frame {1} is fully transparent.";

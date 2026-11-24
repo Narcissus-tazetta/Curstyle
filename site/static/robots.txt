@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://curstyle.prason.dev/sitemap.xml
